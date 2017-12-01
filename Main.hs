@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 
-import Database.SQLite.Simple (SQLData(..), Connection, ResultError(..), open, NamedParam(..), queryNamed, query_)
+import Database.SQLite.Simple (SQLData(..), Connection, ResultError(..), open, NamedParam(..), queryNamed, query_, query, executeNamed, execute)
 import Database.SQLite.Simple.Internal (Field(..))
 import Database.SQLite.Simple.Ok (Ok(..))
 import Database.SQLite.Simple.FromRow (FromRow(..), field)
 import Database.SQLite.Simple.FromField (FromField(..), returnError)
 import Database.SQLite.Simple.ToRow (ToRow(..), toRow)
 import Database.SQLite.Simple.ToField
-import Web.Scotty (scotty, get, delete, json, param, status, ScottyM)
+import Web.Scotty (scotty, get, delete, post, json, jsonData, param, status, ScottyM, ActionM)
 import Network.HTTP.Types (notFound404)
 import GHC.Generics (Generic)
 import Data.Text as T (pack, Text)
@@ -60,14 +60,14 @@ main = do
 routes :: Connection -> ScottyM ()
 routes conn = do
     get "/api/bugs" $ do
-        let query = query_ conn "SELECT * FROM bugs" :: IO [Bug]
-        bugs <- liftIO query
+        let q = query_ conn "SELECT * FROM bugs" :: IO [Bug]
+        bugs <- liftIO q
         json bugs
 
     get "/api/bugs/:bug" $ do
         bug <- param "bug"
-        let query = queryNamed conn "SELECT * FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)] :: IO [Bug]
-        foundBugs <- liftIO query
+        let q = queryNamed conn "SELECT * FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)] :: IO [Bug]
+        foundBugs <- liftIO q
         case foundBugs of
             (b:_) -> json b
             _ -> status notFound404
@@ -75,6 +75,12 @@ routes conn = do
     --FIXME add error checking, 404 etc
     delete "/api/bugs/:bug" $ do
         bug <- param "bug"
-        let query = queryNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)] :: IO [Bug]
-        _ <- liftIO query
+        let q = executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)]
+        liftIO q
         json (Nothing :: Maybe Bug)
+
+    post "/api/bugs" $ do
+        request <- jsonData :: ActionM Bug
+        let q = execute conn "INSERT INTO bugs (jira_id, url, jira_status, assignment, test_status, comments) values (?, ?, ?, ?, ?, ?)" request
+        liftIO q
+        json request
