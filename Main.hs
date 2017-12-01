@@ -39,8 +39,8 @@ instance FromField TestStatus where
 
 data Bug = Bug {
     jiraId :: T.Text,
-    url :: T.Text,
-    jiraStatus :: JiraStatus,
+    url :: Maybe T.Text,
+    jiraStatus :: Maybe JiraStatus,
     assignment :: Maybe T.Text,
     testStatus :: Maybe TestStatus,
     comments :: Maybe T.Text
