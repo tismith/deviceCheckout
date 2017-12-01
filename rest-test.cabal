@@ -11,3 +11,4 @@ executable          rest-test
     build-depends:  base   >= 4      && < 5
                   , scotty
                   , aeson
+                  , text
