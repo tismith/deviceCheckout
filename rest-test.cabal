@@ -12,3 +12,6 @@ executable          rest-test
                   , scotty
                   , aeson
                   , text
+                  , http-types
+                  , sqlite-simple
+                  , mtl
