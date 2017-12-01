@@ -1,19 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 
-import Database.SQLite.Simple (SQLData(..), Connection, ResultError(..), open, NamedParam(..), queryNamed, query_, query, executeNamed, execute)
+import Database.SQLite.Simple (SQLData(..), Connection, ResultError(..),
+    open, NamedParam(..), queryNamed, query_, query, executeNamed, execute)
 import Database.SQLite.Simple.Internal (Field(..))
 import Database.SQLite.Simple.Ok (Ok(..))
 import Database.SQLite.Simple.FromRow (FromRow(..), field)
 import Database.SQLite.Simple.FromField (FromField(..), returnError)
 import Database.SQLite.Simple.ToRow (ToRow(..), toRow)
 import Database.SQLite.Simple.ToField
-import Web.Scotty (scotty, get, delete, post, json, jsonData, param, status, ScottyM, ActionM)
-import Network.HTTP.Types (notFound404)
+import Web.Scotty (scotty, get, delete, post, json, jsonData,
+    param, status, ScottyM, ActionM)
+import Network.HTTP.Types (notFound404, status400)
 import GHC.Generics (Generic)
 import Data.Text as T (pack, Text)
 import Data.Aeson (FromJSON, ToJSON)
 import Control.Monad.Trans (liftIO)
+import Control.Exception (try, SomeException)
 
 data JiraStatus = Open | Resolved | Testing | Active deriving (Show, Generic)
 instance ToJSON JiraStatus
@@ -52,6 +55,12 @@ instance FromRow Bug where
 instance ToRow Bug where
     toRow (Bug ji u js a t c) = toRow (ji, u, js, a, t, c)
 
+data AppError = AppError {
+    errorMessage :: T.Text
+} deriving (Show, Generic)
+instance ToJSON AppError
+instance FromJSON AppError
+
 main :: IO ()
 main = do
     conn <- open "bugs.db"
@@ -61,26 +70,34 @@ routes :: Connection -> ScottyM ()
 routes conn = do
     get "/api/bugs" $ do
         let q = query_ conn "SELECT * FROM bugs" :: IO [Bug]
-        bugs <- liftIO q
-        json bugs
+        r <- liftIO (try q :: IO (Either SomeException [Bug]))
+        case r of
+            Left _ -> status status400 >> json (AppError "Failed reading from database")
+            Right bugs -> json bugs
 
     get "/api/bugs/:bug" $ do
         bug <- param "bug"
         let q = queryNamed conn "SELECT * FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)] :: IO [Bug]
-        foundBugs <- liftIO q
-        case foundBugs of
-            (b:_) -> json b
-            _ -> status notFound404
+        r <- liftIO (try q :: IO (Either SomeException [Bug]))
+        case r of
+            Left _ -> status status400 >> json (AppError "Failed reading from database")
+            Right foundBugs -> case foundBugs of
+                (b:_) -> json b
+                _ -> status notFound404
 
-    --FIXME add error checking, 404 etc
     delete "/api/bugs/:bug" $ do
         bug <- param "bug"
         let q = executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)]
-        liftIO q
-        json (Nothing :: Maybe Bug)
+        r <- liftIO (try q :: IO (Either SomeException ()))
+        case r of
+            Left _ -> status status400 >> json (AppError "Failed to delete element")
+            Right () -> return ()
 
     post "/api/bugs" $ do
         request <- jsonData :: ActionM Bug
         let q = execute conn "INSERT INTO bugs (jira_id, url, jira_status, assignment, test_status, comments) values (?, ?, ?, ?, ?, ?)" request
-        liftIO q
-        json request
+        r <- liftIO (try q :: IO (Either SomeException ()))
+        case r of
+            Left _ -> status status400 >> json (AppError "Failed inserting element")
+            Right () -> json request
+
