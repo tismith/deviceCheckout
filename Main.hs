@@ -8,7 +8,7 @@ import Database.SQLite.Simple.FromRow (FromRow(..), field)
 import Database.SQLite.Simple.FromField (FromField(..), returnError)
 import Database.SQLite.Simple.ToRow (ToRow(..), toRow)
 import Database.SQLite.Simple.ToField
-import Web.Scotty (scotty, get, json, param, status, ScottyM)
+import Web.Scotty (scotty, get, delete, json, param, status, ScottyM)
 import Network.HTTP.Types (notFound404)
 import GHC.Generics (Generic)
 import Data.Text as T (pack, Text)
@@ -59,15 +59,22 @@ main = do
 
 routes :: Connection -> ScottyM ()
 routes conn = do
-  get "/api/bugs" $ do
-    let query = query_ conn "SELECT * FROM bugs" :: IO [Bug]
-    bugs <- liftIO query
-    json bugs
+    get "/api/bugs" $ do
+        let query = query_ conn "SELECT * FROM bugs" :: IO [Bug]
+        bugs <- liftIO query
+        json bugs
 
-  get "/api/bugs/:bug" $ do
-    bug <- param "bug"
-    let query = queryNamed conn "SELECT * FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)] :: IO [Bug]
-    foundBugs <- liftIO query
-    case foundBugs of
-      (b:_) -> json b
-      _ -> status notFound404
+    get "/api/bugs/:bug" $ do
+        bug <- param "bug"
+        let query = queryNamed conn "SELECT * FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)] :: IO [Bug]
+        foundBugs <- liftIO query
+        case foundBugs of
+            (b:_) -> json b
+            _ -> status notFound404
+
+    --FIXME add error checking, 404 etc
+    delete "/api/bugs/:bug" $ do
+        bug <- param "bug"
+        let query = queryNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)] :: IO [Bug]
+        _ <- liftIO query
+        json (Nothing :: Maybe Bug)
