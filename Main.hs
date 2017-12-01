@@ -10,8 +10,8 @@ import Database.SQLite.Simple.ToRow (ToRow(..), toRow)
 import Database.SQLite.Simple.ToField
 import Web.Scotty (scotty, get, json, param, status, ScottyM)
 import Network.HTTP.Types (notFound404)
-import GHC.Generics
-import Data.Text as T
+import GHC.Generics (Generic)
+import Data.Text as T (pack, Text)
 import Data.Aeson (FromJSON, ToJSON)
 import Control.Monad.Trans (liftIO)
 
