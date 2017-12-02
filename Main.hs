@@ -10,10 +10,11 @@ import Database.SQLite.Simple.FromField (FromField(..), returnError)
 import Database.SQLite.Simple.ToRow (ToRow(..), toRow)
 import Database.SQLite.Simple.ToField
 import Web.Scotty (scotty, get, delete, post, json, jsonData,
-    param, status, ScottyM, ActionM)
+    param, status, ScottyM, ActionM, rescue, finish)
 import Network.HTTP.Types (notFound404, status400)
 import GHC.Generics (Generic)
 import Data.Text as T (pack, Text)
+import Data.Text.Lazy as TL (toStrict)
 import Data.Aeson (FromJSON, ToJSON)
 import Control.Monad.Trans (liftIO)
 import Control.Exception (try, SomeException)
@@ -76,7 +77,11 @@ routes conn = do
             Right bugs -> json bugs
 
     get "/api/bugs/:bug" $ do
-        bug <- param "bug"
+        bug <- param "bug" `rescue` (\m -> do
+            status status400
+            json $ AppError $ TL.toStrict m
+            finish
+            )
         let q = queryNamed conn "SELECT * FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)] :: IO [Bug]
         r <- liftIO (try q :: IO (Either SomeException [Bug]))
         case r of
@@ -86,7 +91,11 @@ routes conn = do
                 _ -> status notFound404
 
     delete "/api/bugs/:bug" $ do
-        bug <- param "bug"
+        bug <- param "bug" `rescue` (\m -> do
+            status status400
+            json $ AppError $ TL.toStrict m
+            finish
+            )
         let q = executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)]
         r <- liftIO (try q :: IO (Either SomeException ()))
         case r of
@@ -94,7 +103,11 @@ routes conn = do
             Right () -> return ()
 
     post "/api/bugs" $ do
-        request <- jsonData :: ActionM Bug
+        request <- (jsonData :: ActionM Bug) `rescue` (\m -> do
+            status status400
+            json $ AppError $ TL.toStrict m
+            finish
+            )
         let q = execute conn "INSERT INTO bugs (jira_id, url, jira_status, assignment, test_status, comments) values (?, ?, ?, ?, ?, ?)" request
         r <- liftIO (try q :: IO (Either SomeException ()))
         case r of
