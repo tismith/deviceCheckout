@@ -14,4 +14,3 @@ executable          rest-test
                   , text
                   , http-types
                   , sqlite-simple
-                  , mtl

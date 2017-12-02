@@ -10,14 +10,12 @@ import Database.SQLite.Simple.FromField (FromField(..), returnError)
 import Database.SQLite.Simple.ToRow (ToRow(..), toRow)
 import Database.SQLite.Simple.ToField
 import Web.Scotty (scotty, get, delete, post, json, jsonData,
-    param, status, ScottyM, ActionM, rescue, finish)
+    param, status, ScottyM, ActionM, finish, liftAndCatchIO, defaultHandler)
 import Network.HTTP.Types (notFound404, status400)
 import GHC.Generics (Generic)
 import Data.Text as T (pack, Text)
-import Data.Text.Lazy as TL (toStrict)
+import Data.Text.Lazy as TL (Text)
 import Data.Aeson (FromJSON, ToJSON)
-import Control.Monad.Trans (liftIO)
-import Control.Exception (try, SomeException)
 
 data JiraStatus = Open | Resolved | Testing | Active deriving (Show, Generic)
 instance ToJSON JiraStatus
@@ -56,8 +54,9 @@ instance FromRow Bug where
 instance ToRow Bug where
     toRow (Bug ji u js a t c) = toRow (ji, u, js, a, t, c)
 
+--TL.Text to line up with what Scott exception handlers expect
 data AppError = AppError {
-    errorMessage :: T.Text
+    errorMessage :: TL.Text
 } deriving (Show, Generic)
 instance ToJSON AppError
 instance FromJSON AppError
@@ -65,52 +64,40 @@ instance FromJSON AppError
 main :: IO ()
 main = do
     conn <- open "bugs.db"
-    scotty 3000 $ routes conn
+    scotty 3000 $ (defaultHandler handleError >> routes conn)
+
+--default error handler, return the message in json
+--defaults to error 400, can individually override a statement's
+--handler by using rescue from Web.Scotty
+handleError :: TL.Text -> ActionM a
+handleError m = do
+    status status400
+    json $ AppError m
+    finish
 
 routes :: Connection -> ScottyM ()
 routes conn = do
     get "/api/bugs" $ do
         let q = query_ conn "SELECT * FROM bugs" :: IO [Bug]
-        r <- liftIO (try q :: IO (Either SomeException [Bug]))
-        case r of
-            Left _ -> status status400 >> json (AppError "Failed reading from database")
-            Right bugs -> json bugs
+        bugs <- liftAndCatchIO q
+        json bugs
 
     get "/api/bugs/:bug" $ do
-        bug <- param "bug" `rescue` (\m -> do
-            status status400
-            json $ AppError $ TL.toStrict m
-            finish
-            )
+        bug <- param "bug"
         let q = queryNamed conn "SELECT * FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)] :: IO [Bug]
-        r <- liftIO (try q :: IO (Either SomeException [Bug]))
+        r <- liftAndCatchIO q
         case r of
-            Left _ -> status status400 >> json (AppError "Failed reading from database")
-            Right foundBugs -> case foundBugs of
-                (b:_) -> json b
-                _ -> status notFound404
+            (b:_) -> json b
+            _ -> status notFound404
 
     delete "/api/bugs/:bug" $ do
-        bug <- param "bug" `rescue` (\m -> do
-            status status400
-            json $ AppError $ TL.toStrict m
-            finish
-            )
+        bug <- param "bug"
         let q = executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)]
-        r <- liftIO (try q :: IO (Either SomeException ()))
-        case r of
-            Left _ -> status status400 >> json (AppError "Failed to delete element")
-            Right () -> return ()
+        liftAndCatchIO q
 
     post "/api/bugs" $ do
-        request <- (jsonData :: ActionM Bug) `rescue` (\m -> do
-            status status400
-            json $ AppError $ TL.toStrict m
-            finish
-            )
+        request <- jsonData :: ActionM Bug
         let q = execute conn "INSERT INTO bugs (jira_id, url, jira_status, assignment, test_status, comments) values (?, ?, ?, ?, ?, ?)" request
-        r <- liftIO (try q :: IO (Either SomeException ()))
-        case r of
-            Left _ -> status status400 >> json (AppError "Failed inserting element")
-            Right () -> json request
+        liftAndCatchIO q
+        json request
 
