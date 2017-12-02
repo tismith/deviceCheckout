@@ -83,16 +83,16 @@ routes conn = do
         json bugs
 
     get "/api/bugs/:bug" $ do
-        bug <- param "bug"
-        let q = queryNamed conn "SELECT * FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)] :: IO [Bug]
+        bug <- param "bug" :: ActionM T.Text
+        let q = queryNamed conn "SELECT * FROM bugs WHERE jira_id = :id" [":id" := bug] :: IO [Bug]
         r <- liftAndCatchIO q
         case r of
             (b:_) -> json b
             _ -> status notFound404
 
     delete "/api/bugs/:bug" $ do
-        bug <- param "bug"
-        let q = executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := (bug :: T.Text)]
+        bug <- param "bug" :: ActionM T.Text
+        let q = executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := bug]
         liftAndCatchIO q
 
     post "/api/bugs" $ do
