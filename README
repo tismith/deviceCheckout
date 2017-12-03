@@ -1,0 +1,5 @@
+To build during development:
+
+stack build --fast --file-watch --exec "killall rest-test"
+(in another terminal)
+while :; do stack exec rest-test; done
