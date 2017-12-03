@@ -4,8 +4,8 @@
 import Database.SQLite.Simple (NamedParam(..),
     queryNamed, query_, executeNamed, execute, withConnection)
 import Web.Scotty (scotty, get, delete, post, json, jsonData,
-    param, status, ScottyM, ActionM, finish, liftAndCatchIO, defaultHandler)
-import Network.HTTP.Types (notFound404, status400)
+    param, status, ScottyM, ActionM, finish, liftAndCatchIO, defaultHandler, rescue)
+import Network.HTTP.Types (notFound404, internalServerError500, badRequest400, Status)
 import GHC.Generics (Generic)
 import Data.Text as T (Text)
 import Data.Text.Lazy as TL (Text)
@@ -26,14 +26,12 @@ defaultDB = "bugs.db"
 
 main :: IO ()
 main = do
-    scotty 3000 $ (defaultHandler handleError >> routes defaultDB)
+    scotty 3000 $ defaultHandler (jsonError internalServerError500) >> routes defaultDB
 
 --default error handler, return the message in json
---defaults to error 400, can individually override a statement's
---handler by using rescue from Web.Scotty
-handleError :: TL.Text -> ActionM a
-handleError m = do
-    status status400
+jsonError :: Status -> TL.Text -> ActionM a
+jsonError errorCode m = do
+    status errorCode
     json $ AppError m
     finish
 
@@ -45,7 +43,7 @@ routes db = do
         json bugs
 
     get "/api/bugs/:bug" $ do
-        bug <- param "bug" :: ActionM T.Text
+        bug <- (param "bug" :: ActionM T.Text) `rescue` jsonError badRequest400
         r <- liftAndCatchIO $ withConnection db (\conn ->
             queryNamed conn
                 "SELECT * FROM bugs WHERE jira_id = :id" [":id" := bug] :: IO [Bug])
@@ -54,12 +52,12 @@ routes db = do
             _ -> status notFound404
 
     delete "/api/bugs/:bug" $ do
-        bug <- param "bug" :: ActionM T.Text
+        bug <- (param "bug" :: ActionM T.Text) `rescue` jsonError badRequest400
         liftAndCatchIO $ withConnection db (\conn ->
             executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := bug])
 
     post "/api/bugs" $ do
-        request <- jsonData :: ActionM Bug
+        request <- (jsonData :: ActionM Bug) `rescue` jsonError badRequest400
         liftAndCatchIO $ withConnection db $ \conn ->
             execute conn "INSERT INTO bugs (jira_id, url, jira_status, assignment, test_status, comments) values (?, ?, ?, ?, ?, ?)" request
         json request
