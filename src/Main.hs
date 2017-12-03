@@ -4,7 +4,8 @@
 import Database.SQLite.Simple (NamedParam(..),
     queryNamed, query_, executeNamed, execute, withConnection)
 import Web.Scotty (scotty, get, delete, post, json, jsonData,
-    param, status, ScottyM, ActionM, finish, liftAndCatchIO, defaultHandler, rescue)
+    param, status, ScottyM, ActionM, finish, liftAndCatchIO, defaultHandler, rescue,
+    matchAny, regex, text, html)
 import Network.HTTP.Types (notFound404, internalServerError500, badRequest400, Status)
 import GHC.Generics (Generic)
 import qualified Data.Text as T (Text)
@@ -12,7 +13,8 @@ import qualified Data.Text.Lazy as TL (Text)
 import Data.Aeson (FromJSON, ToJSON)
 
 --Local imports
-import Bug (Bug(..))
+import Types (Bug(..))
+import Templates
 
 --TL.Text to line up with what Scott exception handlers expect
 data AppError = AppError {
@@ -35,8 +37,19 @@ jsonError errorCode m = do
     json $ AppError m
     finish
 
+textError :: Status -> TL.Text -> ActionM a
+textError errorCode m = do
+    status errorCode
+    text m
+    finish
+
 routes :: String -> ScottyM ()
 routes db = do
+    get "/bugs" $ do
+        bugs <- liftAndCatchIO $ withConnection db (\conn ->
+            query_ conn "SELECT * FROM bugs" :: IO [Bug])
+        html $ bugList bugs
+
     get "/api/bugs" $ do
         bugs <- liftAndCatchIO $ withConnection db (\conn ->
             query_ conn "SELECT * FROM bugs" :: IO [Bug])
@@ -61,4 +74,8 @@ routes db = do
         liftAndCatchIO $ withConnection db $ \conn ->
             execute conn "INSERT INTO bugs (jira_id, url, jira_status, assignment, test_status, comments) values (?, ?, ?, ?, ?, ?)" request
         json request
+
+    --default route, Scotty does a HTML based 404 by default
+    matchAny (regex ".*") $ do
+        jsonError notFound404 "Not found"
 

@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
-module Bug (Bug(..)) where
+module Types (Bug(..)) where
 
 import Database.SQLite.Simple(SQLData(..), ResultError(..))
 import Database.SQLite.Simple.Internal (Field(..))

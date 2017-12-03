@@ -6,7 +6,7 @@ build-type:    Simple
 executable          rest-test
     hs-source-dirs: src
     main-is:        Main.hs
-    other-modules:  Bug
+    other-modules:  Types, Templates
     ghc-options:    -Wall -threaded -O2 -rtsopts -with-rtsopts=-N
     extensions:     OverloadedStrings
     build-depends:  base   >= 4      && < 5
@@ -15,3 +15,4 @@ executable          rest-test
                   , text
                   , http-types
                   , sqlite-simple
+                  , blaze-html
