@@ -7,8 +7,8 @@ import Web.Scotty (scotty, get, delete, post, json, jsonData,
     param, status, ScottyM, ActionM, finish, liftAndCatchIO, defaultHandler, rescue)
 import Network.HTTP.Types (notFound404, internalServerError500, badRequest400, Status)
 import GHC.Generics (Generic)
-import Data.Text as T (Text)
-import Data.Text.Lazy as TL (Text)
+import qualified Data.Text as T (Text)
+import qualified Data.Text.Lazy as TL (Text)
 import Data.Aeson (FromJSON, ToJSON)
 
 --Local imports
