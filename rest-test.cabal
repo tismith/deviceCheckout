@@ -4,7 +4,7 @@ cabal-version: >= 1.8
 build-type:    Simple
 
 executable          rest-test
-    hs-source-dirs: .
+    hs-source-dirs: src
     main-is:        Main.hs
     other-modules:  Bug
     ghc-options:    -Wall -threaded -O2 -rtsopts -with-rtsopts=-N
