@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 
-import Database.SQLite.Simple (Connection, open, NamedParam(..),
-    queryNamed, query_, executeNamed, execute)
+import Database.SQLite.Simple (NamedParam(..),
+    queryNamed, query_, executeNamed, execute, withConnection)
 import Web.Scotty (scotty, get, delete, post, json, jsonData,
     param, status, ScottyM, ActionM, finish, liftAndCatchIO, defaultHandler)
 import Network.HTTP.Types (notFound404, status400)
@@ -21,10 +21,12 @@ data AppError = AppError {
 instance ToJSON AppError
 instance FromJSON AppError
 
+defaultDB :: String
+defaultDB = "bugs.db"
+
 main :: IO ()
 main = do
-    conn <- open "bugs.db"
-    scotty 3000 $ (defaultHandler handleError >> routes conn)
+    scotty 3000 $ (defaultHandler handleError >> routes defaultDB)
 
 --default error handler, return the message in json
 --defaults to error 400, can individually override a statement's
@@ -35,29 +37,30 @@ handleError m = do
     json $ AppError m
     finish
 
-routes :: Connection -> ScottyM ()
-routes conn = do
+routes :: String -> ScottyM ()
+routes db = do
     get "/api/bugs" $ do
-        let q = query_ conn "SELECT * FROM bugs" :: IO [Bug]
-        bugs <- liftAndCatchIO q
+        bugs <- liftAndCatchIO $ withConnection db (\conn ->
+            query_ conn "SELECT * FROM bugs" :: IO [Bug])
         json bugs
 
     get "/api/bugs/:bug" $ do
         bug <- param "bug" :: ActionM T.Text
-        let q = queryNamed conn "SELECT * FROM bugs WHERE jira_id = :id" [":id" := bug] :: IO [Bug]
-        r <- liftAndCatchIO q
+        r <- liftAndCatchIO $ withConnection db (\conn ->
+            queryNamed conn
+                "SELECT * FROM bugs WHERE jira_id = :id" [":id" := bug] :: IO [Bug])
         case r of
             (b:_) -> json b
             _ -> status notFound404
 
     delete "/api/bugs/:bug" $ do
         bug <- param "bug" :: ActionM T.Text
-        let q = executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := bug]
-        liftAndCatchIO q
+        liftAndCatchIO $ withConnection db (\conn ->
+            executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := bug])
 
     post "/api/bugs" $ do
         request <- jsonData :: ActionM Bug
-        let q = execute conn "INSERT INTO bugs (jira_id, url, jira_status, assignment, test_status, comments) values (?, ?, ?, ?, ?, ?)" request
-        liftAndCatchIO q
+        liftAndCatchIO $ withConnection db $ \conn ->
+            execute conn "INSERT INTO bugs (jira_id, url, jira_status, assignment, test_status, comments) values (?, ?, ?, ?, ?, ?)" request
         json request
 
