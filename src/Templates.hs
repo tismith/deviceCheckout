@@ -15,7 +15,7 @@ showMaybe = maybe "" show
 bugRow :: Bug -> H.Markup
 bugRow bug = do
     H.td $ H.toMarkup $ jiraId bug
-    H.td $ H.a H.! A.href (H.toValue $ showMaybe $ url bug) $ H.toHtml $ showMaybe $ url bug
+    H.td $ H.a H.! A.href (H.toValue $ maybe "" id $ url bug) $ H.toHtml $ showMaybe $ url bug
     H.td $ H.toMarkup . showMaybe $ jiraStatus bug
     H.td $ H.input H.! A.type_ "text" H.! A.name "assignment" H.! A.value (H.toValue $ showMaybe $ assignment bug)
     H.td $ H.toMarkup . showMaybe $ testStatus bug
