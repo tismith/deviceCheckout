@@ -5,7 +5,7 @@ import Database.SQLite.Simple (NamedParam(..),
     queryNamed, query_, executeNamed, execute, withConnection)
 import Web.Scotty (scotty, get, delete, post, json, jsonData,
     param, status, ScottyM, ActionM, finish, liftAndCatchIO, defaultHandler, rescue,
-    matchAny, regex, text, html)
+    notFound, text, html)
 import Network.HTTP.Types (notFound404, internalServerError500, badRequest400, Status)
 import GHC.Generics (Generic)
 import qualified Data.Text as T (Text)
@@ -76,6 +76,6 @@ routes db = do
         json request
 
     --default route, Scotty does a HTML based 404 by default
-    matchAny (regex ".*") $ do
-        jsonError notFound404 "Not found"
+    notFound $ do
+        textError notFound404 "Not found"
 

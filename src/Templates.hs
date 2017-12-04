@@ -25,7 +25,7 @@ bugList :: [Bug] -> TL.Text
 bugList bugs = renderHtml $ do
     H.head $ do
         H.title "Bug list"
-        H.link H.! A.rel "stylesheet" H.! A.href "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css" -- H.! A.integrity "sha384-PsH8R72JQ3SOdhVi3uxftmaW6Vc51MKb0q5P2rRUpPvrszuE4W1povHYgTpBfshb" H.! A.crossorigin "anonymous"
+        H.link H.! A.rel "stylesheet" H.! A.href "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css"
 
     H.body $ do
         H.div $ H.h1 "Bugs"
