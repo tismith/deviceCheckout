@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 import Database.SQLite.Simple (NamedParam(..),
     queryNamed, query_, executeNamed, execute, withConnection)
@@ -7,21 +6,13 @@ import Web.Scotty (scotty, get, delete, post, json, jsonData,
     param, status, ScottyM, ActionM, finish, liftAndCatchIO, defaultHandler, rescue,
     notFound, text, html)
 import Network.HTTP.Types (notFound404, internalServerError500, badRequest400, Status)
-import GHC.Generics (Generic)
 import qualified Data.Text as T (Text)
 import qualified Data.Text.Lazy as TL (Text)
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (object, (.=))
 
 --Local imports
 import Types (Bug(..))
 import Templates
-
---TL.Text to line up with what Scott exception handlers expect
-data AppError = AppError {
-    errorMessage :: TL.Text
-} deriving (Show, Generic)
-instance ToJSON AppError
-instance FromJSON AppError
 
 defaultDB :: String
 defaultDB = "bugs.db"
@@ -34,7 +25,7 @@ main = do
 jsonError :: Status -> TL.Text -> ActionM a
 jsonError errorCode m = do
     status errorCode
-    json $ AppError m
+    json $ object [ "errorMessage" .= m ]
     finish
 
 textError :: Status -> TL.Text -> ActionM a
