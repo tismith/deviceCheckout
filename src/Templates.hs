@@ -41,10 +41,10 @@ bugRow bug = do
         H.td $ H.toMarkup $ jiraId bug
         H.td $ H.a H.! A.href (H.toValue $ maybe "" id $ url bug) $ H.toHtml $ showMaybe $ url bug
         H.td $ H.toMarkup $ showMaybe $ jiraStatus bug
-        H.td $ H.input H.! A.type_ "text" H.! A.name "assignment" H.! A.value (H.toValue $ showMaybe $ assignment bug)
+        H.td $ H.input H.! A.type_ "text" H.! A.name "assignment" H.! A.value (H.toValue $ maybe "" id $ assignment bug)
         H.td $ H.select H.! A.name "testStatus" $ do
             optionsMaybe (allValues :: [TestStatus]) (testStatus bug)
-        H.td $ H.input H.! A.type_ "text" H.! A.name "comments" H.! A.value (H.toValue $ showMaybe $ comments bug)
+        H.td $ H.input H.! A.type_ "text" H.! A.name "comments" H.! A.value (H.toValue $ maybe "" id $ comments bug)
         H.td $ H.input H.! A.type_ "submit" H.! A.value "submit"
 
 bugList :: (Foldable t) => t Bug -> TL.Text
