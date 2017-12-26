@@ -4,7 +4,7 @@ import Database.SQLite.Simple (NamedParam(..),
     queryNamed, query_, executeNamed, execute, withConnection)
 import Web.Scotty (scotty, get, delete, post, json, jsonData,
     param, status, ScottyM, ActionM, finish, liftAndCatchIO, defaultHandler, rescue,
-    notFound, text, html)
+    notFound, text, html, redirect)
 import Network.HTTP.Types (notFound404, internalServerError500, badRequest400, Status)
 import qualified Data.Text as T (Text)
 import qualified Data.Text.Lazy as TL (Text)
@@ -19,7 +19,9 @@ defaultDB = "bugs.db"
 
 main :: IO ()
 main = do
-    scotty 3000 $ defaultHandler (jsonError internalServerError500) >> routes defaultDB
+    scotty 3000 $ do
+        defaultHandler (jsonError internalServerError500)
+        routes defaultDB
 
 --default error handler, return the message in json
 jsonError :: Status -> TL.Text -> ActionM a
@@ -40,6 +42,19 @@ routes db = do
         bugs <- liftAndCatchIO $ withConnection db (\conn ->
             query_ conn "SELECT * FROM bugs" :: IO [Bug])
         html $ bugList bugs
+
+    post "/bugs" $ do
+        rawJiraId <- (param "jiraId" :: ActionM T.Text) `rescue` jsonError badRequest400
+        rawAssignment <- (param "assignment" :: ActionM T.Text) `rescue` jsonError badRequest400
+        rawTestStatus <- (param "testStatus" :: ActionM T.Text) `rescue` jsonError badRequest400
+        rawComments <- (param "comments" :: ActionM T.Text) `rescue` jsonError badRequest400
+        let testStatus' = if rawTestStatus == "-" then Nothing else Just rawTestStatus
+        liftAndCatchIO $ withConnection db (\conn ->
+            executeNamed conn
+                "UPDATE bugs SET assignment = :a, test_status = :t, comments = :c WHERE jira_id = :j"
+                    [":a" := rawAssignment, ":t" := testStatus',
+                        ":c" := rawComments, ":j" := rawJiraId])
+        redirect "/bugs"
 
     get "/api/bugs" $ do
         bugs <- liftAndCatchIO $ withConnection db (\conn ->

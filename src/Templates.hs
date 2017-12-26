@@ -5,23 +5,49 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import qualified Data.Text.Lazy as TL (Text)
-import Data.Maybe (maybe)
+import Data.Maybe (maybe, isNothing)
 
-import Types(Bug(..))
+import Types(Bug(..), TestStatus(..))
 
 showMaybe :: (Show s) => Maybe s -> String
 showMaybe = maybe "" show
 
+allValues :: (Bounded a, Enum a) => [a]
+allValues = [minBound ..]
+
+maybeEq :: (Eq a) => a -> Maybe a -> Bool
+maybeEq value (Just value') = value == value'
+maybeEq _ _  = False
+
+options :: (Show a, Eq a, Foldable t) => t a -> Maybe a -> H.Markup
+options possible current = mapM_
+    (\x -> H.option H.! A.value (H.toValue $ show x)
+        H.!? (maybeEq x current, A.selected "selected")
+        $ H.toMarkup $ show x) possible
+
+optionsMaybe :: (Show a, Eq a) => [a] -> Maybe a -> H.Markup
+optionsMaybe possible current = do
+    H.option H.! A.value "-"
+        H.!? (isNothing $ current, A.selected "selected") $ "-"
+    options possible current
+
 bugRow :: Bug -> H.Markup
 bugRow bug = do
-    H.td $ H.toMarkup $ jiraId bug
-    H.td $ H.a H.! A.href (H.toValue $ maybe "" id $ url bug) $ H.toHtml $ showMaybe $ url bug
-    H.td $ H.toMarkup . showMaybe $ jiraStatus bug
-    H.td $ H.input H.! A.type_ "text" H.! A.name "assignment" H.! A.value (H.toValue $ showMaybe $ assignment bug)
-    H.td $ H.toMarkup . showMaybe $ testStatus bug
-    H.td $ H.input H.! A.type_ "text" H.! A.name "comments" H.! A.value (H.toValue $ showMaybe $ comments bug)
+    H.form
+        H.! A.name (H.toValue (jiraId bug))
+        H.! A.action "/bugs"
+        H.! A.method "post" $ do
+        H.input H.! A.type_ "hidden" H.! A.name "jiraId" H.! A.value (H.toValue $ jiraId bug)
+        H.td $ H.toMarkup $ jiraId bug
+        H.td $ H.a H.! A.href (H.toValue $ maybe "" id $ url bug) $ H.toHtml $ showMaybe $ url bug
+        H.td $ H.toMarkup $ showMaybe $ jiraStatus bug
+        H.td $ H.input H.! A.type_ "text" H.! A.name "assignment" H.! A.value (H.toValue $ showMaybe $ assignment bug)
+        H.td $ H.select H.! A.name "testStatus" $ do
+            optionsMaybe (allValues :: [TestStatus]) (testStatus bug)
+        H.td $ H.input H.! A.type_ "text" H.! A.name "comments" H.! A.value (H.toValue $ showMaybe $ comments bug)
+        H.td $ H.input H.! A.type_ "submit" H.! A.value "submit"
 
-bugList :: [Bug] -> TL.Text
+bugList :: (Foldable t) => t Bug -> TL.Text
 bugList bugs = renderHtml $ do
     H.head $ do
         H.title "Bug list"
