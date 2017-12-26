@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import Database.SQLite.Simple (NamedParam(..),
-    queryNamed, query_, executeNamed, execute, withConnection)
+    queryNamed, query_, executeNamed, execute, withConnection, changes)
 import Web.Scotty (scotty, get, delete, post, json, jsonData,
     param, status, ScottyM, ActionM, finish, liftAndCatchIO, defaultHandler, rescue,
     notFound, text, html, redirect)
@@ -9,6 +9,7 @@ import Network.HTTP.Types (notFound404, internalServerError500, badRequest400, S
 import qualified Data.Text as T (Text)
 import qualified Data.Text.Lazy as TL (Text)
 import Data.Aeson (object, (.=))
+import Control.Monad (when)
 
 --Local imports
 import Types (Bug(..))
@@ -44,16 +45,22 @@ routes db = do
         html $ bugList bugs
 
     post "/bugs" $ do
-        rawJiraId <- (param "jiraId" :: ActionM T.Text) `rescue` jsonError badRequest400
-        rawAssignment <- (param "assignment" :: ActionM T.Text) `rescue` jsonError badRequest400
-        rawTestStatus <- (param "testStatus" :: ActionM T.Text) `rescue` jsonError badRequest400
-        rawComments <- (param "comments" :: ActionM T.Text) `rescue` jsonError badRequest400
+        rawJiraId <- (param "jiraId" :: ActionM T.Text)
+            `rescue` jsonError badRequest400
+        rawAssignment <- (param "assignment" :: ActionM T.Text)
+            `rescue` jsonError badRequest400
+        rawTestStatus <- (param "testStatus" :: ActionM T.Text)
+            `rescue` jsonError badRequest400
+        rawComments <- (param "comments" :: ActionM T.Text)
+            `rescue` jsonError badRequest400
         let testStatus' = if rawTestStatus == "-" then Nothing else Just rawTestStatus
-        liftAndCatchIO $ withConnection db (\conn ->
+        numRowsChanged <- liftAndCatchIO $ withConnection db (\conn -> do
             executeNamed conn
                 "UPDATE bugs SET assignment = :a, test_status = :t, comments = :c WHERE jira_id = :j"
-                    [":a" := rawAssignment, ":t" := testStatus',
-                        ":c" := rawComments, ":j" := rawJiraId])
+                [":a" := rawAssignment, ":t" := testStatus',
+                ":c" := rawComments, ":j" := rawJiraId]
+            changes conn)
+        when (numRowsChanged /= 1) (jsonError internalServerError500 "Database error")
         redirect "/bugs"
 
     get "/api/bugs" $ do
@@ -72,13 +79,18 @@ routes db = do
 
     delete "/api/bugs/:bug" $ do
         bug <- (param "bug" :: ActionM T.Text) `rescue` jsonError badRequest400
-        liftAndCatchIO $ withConnection db (\conn ->
-            executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := bug])
+        numRowsChanged <- liftAndCatchIO $ withConnection db (\conn -> do
+            executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := bug]
+            changes conn)
+        when (numRowsChanged /= 1) (jsonError internalServerError500 "Database error")
+        finish
 
     post "/api/bugs" $ do
         request <- (jsonData :: ActionM Bug) `rescue` jsonError badRequest400
-        liftAndCatchIO $ withConnection db $ \conn ->
+        numRowsChanged <- liftAndCatchIO $ withConnection db (\conn -> do
             execute conn "INSERT INTO bugs (jira_id, url, jira_status, assignment, test_status, comments) values (?, ?, ?, ?, ?, ?)" request
+            changes conn)
+        when (numRowsChanged /= 1) (jsonError internalServerError500 "Database error")
         json request
 
     --default route, Scotty does a HTML based 404 by default
