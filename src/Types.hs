@@ -13,7 +13,7 @@ import Data.Text as T (pack, Text)
 import Data.Aeson (FromJSON, ToJSON)
 
 data JiraStatus = Open | Resolved | Testing | Active
-    deriving (Show, Generic, Enum, Bounded, Eq)
+    deriving (Show, Generic, Enum, Bounded, Eq, Read)
 instance ToJSON JiraStatus
 instance FromJSON JiraStatus
 instance ToField JiraStatus where
@@ -30,7 +30,7 @@ instance FromField JiraStatus where
     fromField f = returnError ConversionFailed f "Invalid value for jiraStatus"
 
 data TestStatus = Pass | Fail | Ignore
-    deriving (Show, Generic, Enum, Bounded, Eq)
+    deriving (Show, Generic, Enum, Bounded, Eq, Read)
 instance ToJSON TestStatus
 instance FromJSON TestStatus
 instance ToField TestStatus where
