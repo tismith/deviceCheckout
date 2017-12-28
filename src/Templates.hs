@@ -34,18 +34,18 @@ optionsMaybe possible current = do
 bugRow :: Bug -> H.Markup
 bugRow bug = do
     H.form
-        H.! A.name (H.toValue (jiraId bug))
+        H.! A.name (H.toValue $ jiraId bug)
         H.! A.action "/bugs"
         H.! A.method "post" $ do
-        H.input H.! A.type_ "hidden" H.! A.name "jiraId" H.! A.value (H.toValue $ jiraId bug)
+        H.input H.! A.type_ "hidden" H.! A.name "jiraId" H.! A.value (H.toValue $ jiraId bug) H.! A.class_ "form-control"
         H.td $ H.toMarkup $ jiraId bug
-        H.td $ H.a H.! A.href (H.toValue $ maybe "" id $ url bug) $ H.toHtml $ showMaybe $ url bug
+        H.td $ H.a H.! A.href (H.toValue $ maybe "" id $ url bug) $ H.toHtml $ maybe "" id $ url bug
         H.td $ H.toMarkup $ showMaybe $ jiraStatus bug
-        H.td $ H.input H.! A.type_ "text" H.! A.name "assignment" H.! A.value (H.toValue $ maybe "" id $ assignment bug)
-        H.td $ H.select H.! A.name "testStatus" $ do
+        H.td $ H.input H.! A.type_ "text" H.! A.name "assignment" H.! A.value (H.toValue $ maybe "" id $ assignment bug) H.! A.class_ "form-control"
+        H.td $ H.select H.! A.name "testStatus" H.! A.class_ "form-control" $ do
             optionsMaybe (allValues :: [TestStatus]) (testStatus bug)
-        H.td $ H.input H.! A.type_ "text" H.! A.name "comments" H.! A.value (H.toValue $ maybe "" id $ comments bug)
-        H.td $ H.input H.! A.type_ "submit" H.! A.value "submit"
+        H.td $ H.input H.! A.type_ "text" H.! A.name "comments" H.! A.value (H.toValue $ maybe "" id $ comments bug) H.! A.class_ "form-control"
+        H.td $ H.input H.! A.type_ "submit" H.! A.value "submit" H.! A.class_ "btn btn-primary"
 
 bugList :: (Foldable t) => t Bug -> TL.Text
 bugList bugs = renderHtml $ do
@@ -54,13 +54,15 @@ bugList bugs = renderHtml $ do
         H.link H.! A.rel "stylesheet" H.! A.href "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css"
 
     H.body $ do
-        H.div $ H.h1 "Bugs"
-        H.table H.! A.class_ "table table-bordered" $ do
-            H.thead H.! A.class_ "thead-dark" $ H.tr $ do
-                H.th "Jira Id"
-                H.th "URL"
-                H.th "Jira Status"
-                H.th "Assignee"
-                H.th "Test Status"
-                H.th "Comments"
-            mapM_ (H.tr . bugRow) bugs
+        H.div H.! A.class_ "container" $ do
+            H.h1 "Bugs"
+            H.table H.! A.class_ "table table-bordered" $ do
+                H.thead H.! A.class_ "thead-dark" $ H.tr $ do
+                    H.th "Jira Id"
+                    H.th "URL"
+                    H.th "Jira Status"
+                    H.th "Assignee"
+                    H.th "Test Status"
+                    H.th "Comments"
+                    H.th ""
+                mapM_ (H.tr . bugRow) bugs
