@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
-module Types (Bug(..), JiraStatus(..), TestStatus(..)) where
+module Types (Bug(..), JiraStatus, TestStatus) where
 
 import Database.SQLite.Simple(SQLData(..), ResultError(..))
 import Database.SQLite.Simple.Internal (Field(..))

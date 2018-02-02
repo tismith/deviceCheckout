@@ -20,8 +20,7 @@ defaultDB :: String
 defaultDB = "bugs.db"
 
 main :: IO ()
-main = do
-    scotty 3000 $ do
+main = scotty 3000 $ do
         defaultHandler (jsonError internalServerError500)
         routes defaultDB
 
@@ -41,7 +40,7 @@ textError errorCode m = do
 routes :: String -> ScottyM ()
 routes db = do
     get "/bugs" $ do
-        bugs <- (liftAndCatchIO $ withConnection db $ \conn ->
+        bugs <- liftAndCatchIO (withConnection db $ \conn ->
             query_ conn "SELECT * FROM bugs" :: IO [Bug])
                 `rescue` textError internalServerError500
         html $ bugList bugs
@@ -62,7 +61,7 @@ routes db = do
         when (rawTestStatus /= "-" && isNothing testStatus')
             $ textError badRequest400 "Invalid testStatus"
 
-        numRowsChanged <- (liftAndCatchIO $ withConnection db $ \conn -> do
+        numRowsChanged <- liftAndCatchIO (withConnection db $ \conn -> do
             executeNamed conn
                 "UPDATE bugs SET assignment = :a, test_status = :t, comments = :c WHERE jira_id = :j"
                 [":a" := rawAssignment, ":t" := testStatus',
@@ -105,6 +104,5 @@ routes db = do
         json request
 
     --default route, Scotty does a HTML based 404 by default
-    notFound $ do
-        textError notFound404 "Not found"
+    notFound $ textError notFound404 "Not found"
 
