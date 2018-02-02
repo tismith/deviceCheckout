@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
-module Types (Bug(..), JiraStatus, TestStatus) where
+module Types (Bug(..), BugUpdate(..), JiraStatus, TestStatus) where
 
 import Database.SQLite.Simple(SQLData(..), ResultError(..))
 import Database.SQLite.Simple.Internal (Field(..))
@@ -10,6 +10,7 @@ import Database.SQLite.Simple.ToRow (ToRow(..), toRow)
 import Database.SQLite.Simple.ToField
 import GHC.Generics (Generic)
 import Data.Text as T (pack, Text)
+import Data.Text.Lazy as TL (Text)
 import Data.Aeson (FromJSON, ToJSON)
 
 data JiraStatus = Open | Resolved | Testing | Active
@@ -59,3 +60,10 @@ instance FromRow Bug where
 instance ToRow Bug where
     toRow (Bug ji u js a t c) = toRow (ji, u, js, a, t, c)
 
+-- Aeson is T, SQLite.Simple is TL, hence the differences
+data BugUpdate = BugUpdate {
+    newJiraId :: TL.Text,
+    newAssignment :: Maybe TL.Text,
+    newTestStatus :: Maybe TestStatus,
+    newComments :: Maybe TL.Text
+} deriving (Show, Generic)

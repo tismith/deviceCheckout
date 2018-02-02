@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Database.SQLite.Simple (NamedParam(..),
-    queryNamed, query_, executeNamed, execute, withConnection, changes)
 import Web.Scotty (scotty, get, delete, post, json, jsonData,
     param, status, ScottyM, ActionM, finish, liftAndCatchIO, defaultHandler, rescue,
     notFound, text, html, redirect)
@@ -13,7 +11,8 @@ import Data.Maybe (isNothing)
 import Text.Read (readMaybe)
 
 --Local imports
-import Types (Bug(..), TestStatus)
+import Types (Bug(..), BugUpdate(..), TestStatus)
+import Database (getBugs, updateBug, getBug, deleteBug, addBug)
 import Templates
 
 defaultDB :: String
@@ -40,8 +39,7 @@ textError errorCode m = do
 routes :: String -> ScottyM ()
 routes db = do
     get "/bugs" $ do
-        bugs <- liftAndCatchIO (withConnection db $ \conn ->
-            query_ conn "SELECT * FROM bugs" :: IO [Bug])
+        bugs <- liftAndCatchIO (getBugs db)
                 `rescue` textError internalServerError500
         html $ bugList bugs
 
@@ -55,18 +53,18 @@ routes db = do
         rawComments <- (param "comments" :: ActionM TL.Text)
             `rescue` textError badRequest400
 
-        let testStatus' = if rawTestStatus == "-"
+        let maybeTestStatus = if rawTestStatus == "-"
                 then Nothing
                 else (readMaybe (TL.unpack rawTestStatus) :: Maybe TestStatus)
-        when (rawTestStatus /= "-" && isNothing testStatus')
+        when (rawTestStatus /= "-" && isNothing maybeTestStatus)
             $ textError badRequest400 "Invalid testStatus"
 
-        numRowsChanged <- liftAndCatchIO (withConnection db $ \conn -> do
-            executeNamed conn
-                "UPDATE bugs SET assignment = :a, test_status = :t, comments = :c WHERE jira_id = :j"
-                [":a" := rawAssignment, ":t" := testStatus',
-                ":c" := rawComments, ":j" := rawJiraId]
-            changes conn)
+        let bugUpdate = BugUpdate
+                            rawJiraId
+                            (Just rawAssignment)
+                            maybeTestStatus
+                            (Just rawComments)
+        numRowsChanged <- liftAndCatchIO (updateBug db bugUpdate)
                 `rescue` textError internalServerError500
 
         when (numRowsChanged /= 1)
@@ -74,32 +72,25 @@ routes db = do
         redirect "/bugs"
 
     get "/api/bugs" $ do
-        bugs <- liftAndCatchIO $ withConnection db (\conn ->
-            query_ conn "SELECT * FROM bugs" :: IO [Bug])
+        bugs <- liftAndCatchIO $ getBugs db
         json bugs
 
     get "/api/bugs/:bug" $ do
         bug <- (param "bug" :: ActionM TL.Text) `rescue` jsonError badRequest400
-        r <- liftAndCatchIO $ withConnection db $ \conn ->
-            queryNamed conn
-                "SELECT * FROM bugs WHERE jira_id = :id" [":id" := bug] :: IO [Bug]
+        r <- liftAndCatchIO $ getBug db bug
         case r of
-            (b:_) -> json b
+            Just b -> json b
             _ -> status notFound404
 
     delete "/api/bugs/:bug" $ do
         bug <- (param "bug" :: ActionM TL.Text) `rescue` jsonError badRequest400
-        numRowsChanged <- liftAndCatchIO $ withConnection db $ \conn -> do
-            executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := bug]
-            changes conn
+        numRowsChanged <- liftAndCatchIO $ deleteBug db bug
         when (numRowsChanged /= 1) (jsonError notFound404 "Failed to delete")
         finish
 
     post "/api/bugs" $ do
         request <- (jsonData :: ActionM Bug) `rescue` jsonError badRequest400
-        numRowsChanged <- liftAndCatchIO $ withConnection db $ \conn -> do
-            execute conn "INSERT INTO bugs (jira_id, url, jira_status, assignment, test_status, comments) values (?, ?, ?, ?, ?, ?)" request
-            changes conn
+        numRowsChanged <- liftAndCatchIO $ addBug db request
         when (numRowsChanged /= 1) $ jsonError internalServerError500 "Database error"
         json request
 

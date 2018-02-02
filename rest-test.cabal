@@ -6,7 +6,7 @@ build-type:    Simple
 executable          rest-test
     hs-source-dirs: src
     main-is:        Main.hs
-    other-modules:  Types, Templates, Utils
+    other-modules:  Types, Templates, Utils, Database
     ghc-options:    -Wall -threaded -O2 -rtsopts -with-rtsopts=-N
     extensions:     OverloadedStrings
     build-depends:  base   >= 4      && < 5
