@@ -8,19 +8,10 @@ import qualified Data.Text.Lazy as TL (Text)
 import Data.Maybe (maybe, isNothing)
 
 import Types(Bug(..), TestStatus(..))
+import Utils(showMaybe, allValues, maybeEq)
 
 bootstrap4 :: H.AttributeValue
 bootstrap4 = "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css"
-
-showMaybe :: (Show s) => Maybe s -> String
-showMaybe = maybe "" show
-
-allValues :: (Bounded a, Enum a) => [a]
-allValues = [minBound ..]
-
-maybeEq :: (Eq a) => a -> Maybe a -> Bool
-maybeEq value (Just value') = value == value'
-maybeEq _ _  = False
 
 options :: (Show a, Eq a, Foldable t) => t a -> Maybe a -> H.Markup
 options possible current = mapM_
