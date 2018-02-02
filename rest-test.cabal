@@ -16,3 +16,11 @@ executable          rest-test
                   , http-types
                   , sqlite-simple
                   , blaze-html
+
+test-suite             doctests
+    type:              exitcode-stdio-1.0
+    main-is:           DocTest.hs
+    hs-source-dirs:    test
+    build-depends:     base
+                     , doctest
+                     , Glob
