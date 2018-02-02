@@ -1,3 +1,14 @@
+A basic experiment of building a rest api in Haskell, which was since expanded to include basic HTML forms support as well.
+
+It uses SQLite.Simple for persistence and Text.Blaze for templating.
+
+There are some really basic DocTests that are kicked off from make.
+
+There's a makefile, that uses stack and cabal under the hood to build.
+
+
+Other interesting things to remember:
+
 To build during development:
 
 stack build --fast --file-watch --exec "killall rest-test"
