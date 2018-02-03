@@ -9,8 +9,7 @@ import Database.SQLite.Simple.FromField (FromField(..), returnError)
 import Database.SQLite.Simple.ToRow (ToRow(..), toRow)
 import Database.SQLite.Simple.ToField
 import GHC.Generics (Generic)
-import Data.Text as T (pack, Text)
-import Data.Text.Lazy as TL (Text)
+import Data.Text.Lazy as TL (Text, pack, toStrict)
 import Data.Aeson (FromJSON, ToJSON)
 
 data JiraStatus = Open | Resolved | Testing | Active
@@ -18,7 +17,7 @@ data JiraStatus = Open | Resolved | Testing | Active
 instance ToJSON JiraStatus
 instance FromJSON JiraStatus
 instance ToField JiraStatus where
-    toField = SQLText . T.pack . show
+    toField = SQLText . TL.toStrict. TL.pack . show
 instance FromField JiraStatus where
     fromField (Field (SQLText "Open") _) = Ok Open
     fromField (Field (SQLText "open") _) = Ok Open
@@ -35,7 +34,7 @@ data TestStatus = Pass | Fail | Ignore
 instance ToJSON TestStatus
 instance FromJSON TestStatus
 instance ToField TestStatus where
-    toField = SQLText . T.pack . show
+    toField = SQLText . TL.toStrict. TL.pack . show
 instance FromField TestStatus where
     fromField (Field (SQLText "Pass") _) = Ok Pass
     fromField (Field (SQLText "pass") _) = Ok Pass
@@ -46,12 +45,12 @@ instance FromField TestStatus where
     fromField f = returnError ConversionFailed f "Invalid value for testStatus"
 
 data Bug = Bug {
-    jiraId :: T.Text,
-    url :: Maybe T.Text,
+    jiraId :: TL.Text,
+    url :: Maybe TL.Text,
     jiraStatus :: Maybe JiraStatus,
-    assignment :: Maybe T.Text,
+    assignment :: Maybe TL.Text,
     testStatus :: Maybe TestStatus,
-    comments :: Maybe T.Text
+    comments :: Maybe TL.Text
 } deriving (Show, Generic)
 instance ToJSON Bug
 instance FromJSON Bug
@@ -60,7 +59,6 @@ instance FromRow Bug where
 instance ToRow Bug where
     toRow (Bug ji u js a t c) = toRow (ji, u, js, a, t, c)
 
--- Aeson is T, SQLite.Simple is TL, hence the differences
 data BugUpdate = BugUpdate {
     newJiraId :: TL.Text,
     newAssignment :: Maybe TL.Text,
