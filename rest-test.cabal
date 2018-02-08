@@ -16,6 +16,7 @@ executable          rest-test
                   , http-types
                   , sqlite-simple
                   , blaze-html
+                  , mtl
 
 test-suite             doctests
     type:              exitcode-stdio-1.0

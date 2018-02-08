@@ -1,5 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
-module Types (Bug(..), BugUpdate(..), JiraStatus, TestStatus) where
+module Types (
+    Bug(..),
+    BugUpdate(..),
+    JiraStatus,
+    TestStatus,
+    ApplicationOptions(..)
+) where
 
 import Database.SQLite.Simple(SQLData(..), ResultError(..))
 import Database.SQLite.Simple.Internal (Field(..))
@@ -11,6 +17,10 @@ import Database.SQLite.Simple.ToField
 import GHC.Generics (Generic)
 import Data.Text.Lazy as TL (Text, pack, toStrict)
 import Data.Aeson (FromJSON, ToJSON)
+
+newtype ApplicationOptions = ApplicationOptions {
+    databasePath :: String
+} deriving (Show)
 
 data JiraStatus = Open | Resolved | Testing | Active
     deriving (Show, Generic, Enum, Bounded, Eq, Read)
