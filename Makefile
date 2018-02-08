@@ -18,3 +18,7 @@ test:
 lint:
 	hlint .
 	weeder .
+
+.PHONY: docs
+docs:
+	stack haddock --open
