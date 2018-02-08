@@ -33,19 +33,18 @@ main = scottyT 3000 passInOptions $ do
         where
             passInOptions r = runReaderT r defaultOptions
 
-
 --default error handler, return the message in json
-jsonError :: Status -> TL.Text -> ActionD a
-jsonError errorCode m = do
+handleError :: (TL.Text -> ActionD ()) -> Status -> TL.Text -> ActionD a
+handleError formatter errorCode msg = do
     status errorCode
-    json $ object [ "errorMessage" .= m ]
+    formatter msg
     finish
+
+jsonError :: Status -> TL.Text -> ActionD a
+jsonError = handleError (\m -> json $ object [ "errorMessage" .= m ])
 
 textError :: Status -> TL.Text -> ActionD a
-textError errorCode m = do
-    status errorCode
-    text m
-    finish
+textError = handleError text
 
 getDatabasePath :: ActionD String
 getDatabasePath = databasePath <$> lift ask
