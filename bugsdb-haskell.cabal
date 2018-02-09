@@ -1,9 +1,9 @@
-name:          rest-test
+name:          bugsdb-haskell
 version:       0.0.0
 cabal-version: >= 1.8
 build-type:    Simple
 
-executable          rest-test
+executable          bugsdb-haskell
     hs-source-dirs: src
     main-is:        Main.hs
     other-modules:  Types, Templates, Utils, Database
