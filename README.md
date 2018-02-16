@@ -1,4 +1,4 @@
-A basic device checkin/checkout registry, based on [1](bugdb-haskell)
+A basic device checkin/checkout registry, based on [1][bugsdb-haskell]
 
 Screenshot:
 ![Basic screenshot](screenshot.png)
