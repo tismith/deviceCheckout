@@ -12,7 +12,7 @@ import Data.Aeson (object, (.=))
 import Control.Monad (when)
 import Control.Monad.Reader (runReaderT, ReaderT, ask)
 import Control.Monad.Trans (lift)
-import qualified Data.Text.Lazy as TL (Text, unpack)
+import qualified Data.Text.Lazy as TL (Text, unpack, length)
 
 --Concurrency
 import Control.Concurrent.MVar (MVar, newMVar, modifyMVar)
@@ -24,12 +24,13 @@ import Options.Applicative (Parser, execParser, strOption, long,
 import Data.Semigroup ((<>))
 
 --Utilities
-import Data.Maybe (isNothing)
+import Data.Maybe (isNothing, fromMaybe, isJust)
 import Text.Read (readMaybe)
 
 --Local imports
-import Types (Bug(..), BugUpdate(..), TestStatus, ApplicationOptions(..))
-import Database (getBugs, updateBug, getBug, deleteBug, addBug)
+import Types (Device(..), DeviceUpdate(..),
+    ReservationStatus(..), ApplicationOptions(..))
+import Database (getDevices, updateDevice, getDevice, deleteDevice, addDevice)
 import Templates
 
 data Application = Application {
@@ -44,7 +45,7 @@ applicationOptions = ApplicationOptions
           <> short 'f'
           <> metavar "DATABASE"
           <> showDefault
-          <> value "bugs.db"
+          <> value "devices.db"
           <> help "SQLite DB path" )
     <*> option auto
         ( long "webserver-port"
@@ -69,7 +70,7 @@ main = do
     where
         opts = info
             (applicationOptions <**> helper)
-            (fullDesc <> progDesc "Basic bug database webapp")
+            (fullDesc <> progDesc "Basic device registry database webapp")
         passInApplication = flip runReaderT
 
 --default error handler, return the message in json
@@ -95,64 +96,75 @@ withDatabase action = do
 
 routes :: ScottyD ()
 routes = do
-    get "/bugs" $ do
-        bugs <- withDatabase getBugs
+    get "/devices" $ do
+        devices <- withDatabase getDevices
                 `rescue` textError internalServerError500
-        html $ bugList bugs
+        html $ deviceList devices
 
-    post "/bugs" $ do
-        rawJiraId <- (param "jiraId" :: ActionD TL.Text)
+    post "/devices" $ do
+        rawDeviceName <- (param "deviceName" :: ActionD TL.Text)
             `rescue` textError badRequest400
-        rawAssignment <- (param "assignment" :: ActionD TL.Text)
+        rawOwner <- (param "deviceOwner" :: ActionD TL.Text)
             `rescue` textError badRequest400
-        rawTestStatus <- (param "testStatus" :: ActionD TL.Text)
+        rawReservationStatus <- (param "reservationStatus" :: ActionD TL.Text)
             `rescue` textError badRequest400
         rawComments <- (param "comments" :: ActionD TL.Text)
             `rescue` textError badRequest400
 
-        let maybeTestStatus = if rawTestStatus == "-"
-                then Nothing
-                else (readMaybe (TL.unpack rawTestStatus) :: Maybe TestStatus)
-        when (rawTestStatus /= "-" && isNothing maybeTestStatus)
-            $ textError badRequest400 "Invalid testStatus"
+        let maybeReservationStatus =
+                readMaybe (TL.unpack rawReservationStatus) :: Maybe ReservationStatus
+        when (isNothing maybeReservationStatus)
+            $ textError badRequest400 "Invalid reservationStatus"
 
-        let bugUpdate = BugUpdate
-                            rawJiraId
-                            (Just rawAssignment)
-                            maybeTestStatus
+        when (isJust maybeReservationStatus && TL.length rawOwner == 0)
+            $ textError badRequest400 "You need to supply a username"
+
+        let realReservationStatus = fromMaybe Available maybeReservationStatus
+
+        --Blank out the user on returning devices
+        let realOwner =
+                case realReservationStatus of
+                    Available -> Nothing
+                    _ -> Just rawOwner
+
+        let deviceUpdate = DeviceUpdate
+                            rawDeviceName
+                            realOwner
+                            realReservationStatus
                             (Just rawComments)
-        updateReturn <- withDatabase (`updateBug` bugUpdate)
+        updateReturn <- withDatabase (`updateDevice` deviceUpdate)
                 `rescue` textError internalServerError500
         case updateReturn of
             Left e -> textError internalServerError500 e
-            Right _ -> redirect "/bugs"
+            Right _ -> redirect "/devices"
 
-    get "/api/bugs" $ do
-        bugs <- withDatabase getBugs
-        json bugs
+    get "/api/devices" $ do
+        devices <- withDatabase getDevices
+        json devices
 
-    get "/api/bugs/:bug" $ do
-        bug <- (param "bug" :: ActionD TL.Text) `rescue` jsonError badRequest400
-        r <- withDatabase (`getBug` bug)
+    get "/api/devices/:device" $ do
+        device <- (param "device" :: ActionD TL.Text) `rescue` jsonError badRequest400
+        r <- withDatabase (`getDevice` device)
         case r of
             Just b -> json b
             _ -> status notFound404
 
-    delete "/api/bugs/:bug" $ do
-        bug <- (param "bug" :: ActionD TL.Text) `rescue` jsonError badRequest400
-        deleteReturn <- withDatabase (`deleteBug` bug)
+    delete "/api/devices/:device" $ do
+        device <- (param "device" :: ActionD TL.Text) `rescue` jsonError badRequest400
+        deleteReturn <- withDatabase (`deleteDevice` device)
         case deleteReturn of
             Left e -> textError internalServerError500 e
             Right _ -> finish
 
-    post "/api/bugs" $ do
-        request <- (jsonData :: ActionD Bug) `rescue` jsonError badRequest400
-        addReturn <- withDatabase (`addBug` request)
+    post "/api/devices" $ do
+        request <- (jsonData :: ActionD Device) `rescue` jsonError badRequest400
+        addReturn <- withDatabase (`addDevice` request)
         case addReturn of
             Left e -> textError internalServerError500 e
             Right _ -> json request
 
-    get "/" $ redirect "/bugs"
+    get "/" $ redirect "/devices"
+
     --default route, Scotty does a HTML based 404 by default
     notFound $ textError notFound404 "Not found"
 

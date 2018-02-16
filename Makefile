@@ -31,3 +31,8 @@ hoogle:
 .PHONY: clean
 clean:
 	stack clean
+	-rm devices.db
+
+devices.db: data/devices.sql
+	-@rm devices.db
+	sqlite3 devices.db < data/devices.sql

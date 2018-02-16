@@ -1,9 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Types (
-    Bug(..),
-    BugUpdate(..),
-    JiraStatus,
-    TestStatus,
+    Device(..),
+    DeviceUpdate(..),
+    ReservationStatus(..),
     ApplicationOptions(..)
 ) where
 
@@ -23,56 +22,38 @@ data ApplicationOptions = ApplicationOptions {
     portNumber :: Int
 } deriving (Show)
 
-data JiraStatus = Open | Resolved | Testing | Active
+data ReservationStatus = Available | Reserved
     deriving (Show, Generic, Enum, Bounded, Eq, Read)
-instance ToJSON JiraStatus
-instance FromJSON JiraStatus
-instance ToField JiraStatus where
+instance ToJSON ReservationStatus
+instance FromJSON ReservationStatus
+instance ToField ReservationStatus where
     toField = SQLText . TL.toStrict. TL.pack . show
-instance FromField JiraStatus where
-    fromField (Field (SQLText "Open") _) = Ok Open
-    fromField (Field (SQLText "open") _) = Ok Open
-    fromField (Field (SQLText "Resolved") _) = Ok Resolved
-    fromField (Field (SQLText "resolved") _) = Ok Resolved
-    fromField (Field (SQLText "Testing") _) = Ok Testing
-    fromField (Field (SQLText "testing") _) = Ok Testing
-    fromField (Field (SQLText "Active") _) = Ok Active
-    fromField (Field (SQLText "active") _) = Ok Active
-    fromField f = returnError ConversionFailed f "Invalid value for jiraStatus"
+instance FromField ReservationStatus where
+    fromField (Field (SQLText "available") _) = Ok Available
+    fromField (Field (SQLText "Available") _) = Ok Available
+    fromField (Field (SQLText "Reserved") _) = Ok Reserved
+    fromField (Field (SQLText "reserved") _) = Ok Reserved
+    --Make empty strings map to available
+    fromField (Field (SQLText "") _) = Ok Available
+    fromField f = returnError ConversionFailed f "Invalid value for reservationStatus"
 
-data TestStatus = Pass | Fail | Ignore
-    deriving (Show, Generic, Enum, Bounded, Eq, Read)
-instance ToJSON TestStatus
-instance FromJSON TestStatus
-instance ToField TestStatus where
-    toField = SQLText . TL.toStrict. TL.pack . show
-instance FromField TestStatus where
-    fromField (Field (SQLText "Pass") _) = Ok Pass
-    fromField (Field (SQLText "pass") _) = Ok Pass
-    fromField (Field (SQLText "Fail") _) = Ok Fail
-    fromField (Field (SQLText "fail") _) = Ok Fail
-    fromField (Field (SQLText "Ignore") _) = Ok Ignore
-    fromField (Field (SQLText "ignore") _) = Ok Ignore
-    fromField f = returnError ConversionFailed f "Invalid value for testStatus"
-
-data Bug = Bug {
-    jiraId :: TL.Text,
-    url :: Maybe TL.Text,
-    jiraStatus :: Maybe JiraStatus,
-    assignment :: Maybe TL.Text,
-    testStatus :: Maybe TestStatus,
-    comments :: Maybe TL.Text
+data Device = Device {
+    deviceName :: TL.Text,
+    deviceUrl :: Maybe TL.Text,
+    deviceOwner :: Maybe TL.Text,
+    comments :: Maybe TL.Text,
+    reservationStatus :: Maybe ReservationStatus
 } deriving (Show, Generic)
-instance ToJSON Bug
-instance FromJSON Bug
-instance FromRow Bug where
-    fromRow = Bug <$> field <*> field <*> field <*> field <*> field <*> field
-instance ToRow Bug where
-    toRow (Bug ji u js a t c) = toRow (ji, u, js, a, t, c)
+instance ToJSON Device
+instance FromJSON Device
+instance FromRow Device where
+    fromRow = Device <$> field <*> field <*> field <*> field <*> field
+instance ToRow Device where
+    toRow (Device a b c d e) = toRow (a, b, c, d, e)
 
-data BugUpdate = BugUpdate {
-    newJiraId :: TL.Text,
-    newAssignment :: Maybe TL.Text,
-    newTestStatus :: Maybe TestStatus,
+data DeviceUpdate = DeviceUpdate {
+    newDeviceName :: TL.Text,
+    newOwner :: Maybe TL.Text,
+    newReservationStatus :: ReservationStatus,
     newComments :: Maybe TL.Text
 } deriving (Show, Generic)

@@ -4,43 +4,43 @@ import Database.SQLite.Simple (NamedParam(..),
     queryNamed, query_, execute, executeNamed, withConnection, changes)
 import qualified Data.Text.Lazy as TL (Text)
 
-import Types (Bug (..), BugUpdate (..))
+import Types (Device (..), DeviceUpdate (..))
 
-getBugs :: String -> IO [Bug]
-getBugs db = withConnection db $ \conn ->
-                query_ conn "SELECT * FROM bugs"
+getDevices :: String -> IO [Device]
+getDevices db = withConnection db $ \conn ->
+                query_ conn "SELECT * FROM devices"
 
-updateBug :: String -> BugUpdate -> IO (Either TL.Text Int)
-updateBug db bug =
+updateDevice :: String -> DeviceUpdate -> IO (Either TL.Text Int)
+updateDevice db device =
     withConnection db $ \conn -> do
         executeNamed conn
-            "UPDATE bugs SET assignment = :a, test_status = :t, comments = :c WHERE jira_id = :j"
-                [":a" := newAssignment bug, ":t" := newTestStatus bug,
-                ":c" := newComments bug, ":j" := newJiraId bug]
+            "UPDATE devices SET device_owner = :o, reservation_status = :r, comments = :c WHERE device_name = :n"
+                [":o" := newOwner device, ":r" := newReservationStatus device,
+                ":c" := newComments device, ":n" := newDeviceName device]
         numRowsChanged <- changes conn
         if numRowsChanged /= 1
             then return (Left "Database error")
             else return (Right 1)
 
-getBug :: String -> TL.Text -> IO (Maybe Bug)
-getBug db bug = withConnection db $ \conn -> do
+getDevice :: String -> TL.Text -> IO (Maybe Device)
+getDevice db device = withConnection db $ \conn -> do
     r <- queryNamed conn
-        "SELECT * FROM bugs WHERE jira_id = :id" [":id" := bug] :: IO [Bug]
+        "SELECT * FROM devices WHERE device_name = :id" [":id" := device] :: IO [Device]
     case r of
         (b:_) -> return (Just b)
         _ -> return Nothing
 
-deleteBug :: String -> TL.Text -> IO (Either TL.Text Int)
-deleteBug db bug = withConnection db $ \conn -> do
-    executeNamed conn "DELETE FROM bugs WHERE jira_id = :id" [":id" := bug]
+deleteDevice :: String -> TL.Text -> IO (Either TL.Text Int)
+deleteDevice db device = withConnection db $ \conn -> do
+    executeNamed conn "DELETE FROM devices WHERE device_name = :id" [":id" := device]
     numRowsChanged <- changes conn
     if numRowsChanged /= 1
         then return (Left "Database error")
         else return (Right 1)
 
-addBug :: String -> Bug -> IO (Either TL.Text Int)
-addBug db bug = withConnection db $ \conn -> do
-    execute conn "INSERT INTO bugs (jira_id, url, jira_status, assignment, test_status, comments) values (?, ?, ?, ?, ?, ?)" bug
+addDevice :: String -> Device -> IO (Either TL.Text Int)
+addDevice db device = withConnection db $ \conn -> do
+    execute conn "INSERT INTO devices (device_name, url, device_owner, reservation_status, comments) values (?, ?, ?, ?, ?)" device
     numRowsChanged <- changes conn
     if numRowsChanged /= 1
         then return (Left "Database error")

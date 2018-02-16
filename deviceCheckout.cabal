@@ -1,12 +1,12 @@
-name:          bugsdb-haskell
+name:          deviceCheckout
 version:       0.0.0
 cabal-version: >= 1.8
 build-type:    Simple
 
-executable          bugsdb-haskell
+executable          deviceCheckout
     hs-source-dirs: src
     main-is:        Main.hs
-    other-modules:  Types, Templates, Utils, Database
+    other-modules:  Types, Templates, Database
     ghc-options:    -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns
                     -Wredundant-constraints -threaded -O2 -rtsopts -with-rtsopts=-N
     extensions:     OverloadedStrings
