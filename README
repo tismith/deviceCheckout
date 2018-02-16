@@ -14,3 +14,10 @@ To build during development:
 stack build --fast --file-watch --exec "killall rest-test"
 (in another terminal)
 while :; do stack exec rest-test; done
+
+
+TODO:
+I concurrent access to endpoints are likely to result in SQLITE_BUSY errors
+being returned - I should fix this, likely by putting a database handle in
+an MVar in the ReaderT, to ensure only one guy is accessing the db at a time
+i.e. http://nurpax.github.io/posts/2013-01-04-note-to-self.html

@@ -21,7 +21,7 @@ lint:
 
 .PHONY: haddock
 haddock:
-	stack haddock --open &
+	stack haddock --open
 
 .PHONY: hoogle
 hoogle:
