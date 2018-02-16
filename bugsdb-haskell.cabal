@@ -18,6 +18,7 @@ executable          bugsdb-haskell
                   , sqlite-simple
                   , blaze-html
                   , mtl
+                  , optparse-applicative
 
 test-suite             doctests
     type:              exitcode-stdio-1.0

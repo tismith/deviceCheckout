@@ -18,8 +18,9 @@ import GHC.Generics (Generic)
 import Data.Text.Lazy as TL (Text, pack, toStrict)
 import Data.Aeson (FromJSON, ToJSON)
 
-newtype ApplicationOptions = ApplicationOptions {
-    databasePath :: String
+data ApplicationOptions = ApplicationOptions {
+    databasePath :: String,
+    portNumber :: Int
 } deriving (Show)
 
 data JiraStatus = Open | Resolved | Testing | Active

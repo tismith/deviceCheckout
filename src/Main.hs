@@ -1,15 +1,26 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+--Web and scotty
 import Web.Scotty.Trans (scottyT, get, delete, post, json, jsonData,
     param, status, finish, liftAndCatchIO, defaultHandler, rescue,
     notFound, text, html, redirect, ScottyT, ActionT)
 import Network.HTTP.Types (notFound404, internalServerError500,
     badRequest400, Status)
-import qualified Data.Text.Lazy as TL (Text, unpack)
 import Data.Aeson (object, (.=))
+
+--Monads
 import Control.Monad (when)
 import Control.Monad.Reader (runReaderT, ReaderT, ask)
 import Control.Monad.Trans (lift)
+import qualified Data.Text.Lazy as TL (Text, unpack)
+
+--Option parsing
+import Options.Applicative (Parser, execParser, strOption, long,
+    short, metavar, value, showDefault, help, auto, option, info,
+    (<**>), helper, fullDesc, progDesc)
+import Data.Semigroup ((<>))
+
+--Utilities
 import Data.Maybe (isNothing)
 import Text.Read (readMaybe)
 
@@ -18,8 +29,22 @@ import Types (Bug(..), BugUpdate(..), TestStatus, ApplicationOptions(..))
 import Database (getBugs, updateBug, getBug, deleteBug, addBug)
 import Templates
 
-defaultOptions :: ApplicationOptions
-defaultOptions = ApplicationOptions "bugs.db"
+applicationOptions :: Parser ApplicationOptions
+applicationOptions = ApplicationOptions
+    <$> strOption
+        ( long "database"
+          <> short 'f'
+          <> metavar "DATABASE"
+          <> showDefault
+          <> value "bugs.db"
+          <> help "SQLite DB path" )
+    <*> option auto
+        ( long "webserver-port"
+          <> short 'p'
+          <> help "Port to run the webserver"
+          <> showDefault
+          <> value 3000
+          <> metavar "INT" )
 
 -- NB: ScottyT and hence ScottD is not a Transformer,
 --     the underlying monad will only be run on a per-action basis
@@ -27,11 +52,16 @@ type ScottyD = ScottyT TL.Text (ReaderT ApplicationOptions IO)
 type ActionD = ActionT TL.Text (ReaderT ApplicationOptions IO)
 
 main :: IO ()
-main = scottyT 3000 passInOptions $ do
+main = do
+    options <- execParser opts
+    scottyT (portNumber options) (passInOptions options) $ do
         defaultHandler (jsonError internalServerError500)
         routes
-        where
-            passInOptions r = runReaderT r defaultOptions
+    where
+        opts = info
+            (applicationOptions <**> helper)
+            (fullDesc <> progDesc "Basic bug database webapp")
+        passInOptions = flip runReaderT
 
 --default error handler, return the message in json
 handleError :: (TL.Text -> ActionD ()) -> Status -> TL.Text -> ActionD a
@@ -103,17 +133,18 @@ routes = do
         bug <- (param "bug" :: ActionD TL.Text) `rescue` jsonError badRequest400
         deleteReturn <- liftAndCatchIO $ deleteBug db bug
         case deleteReturn of
-            (Left e) -> textError internalServerError500 e
-            (Right _) -> finish
+            Left e -> textError internalServerError500 e
+            Right _ -> finish
 
     post "/api/bugs" $ do
         db <- getDatabasePath
         request <- (jsonData :: ActionD Bug) `rescue` jsonError badRequest400
         addReturn <- liftAndCatchIO $ addBug db request
         case addReturn of
-            (Left e) -> textError internalServerError500 e
-            (Right _) -> json request
+            Left e -> textError internalServerError500 e
+            Right _ -> json request
 
+    get "/" $ redirect "/bugs"
     --default route, Scotty does a HTML based 404 by default
     notFound $ textError notFound404 "Not found"
 
