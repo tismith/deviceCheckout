@@ -19,6 +19,15 @@ lint:
 	hlint .
 	weeder .
 
-.PHONY: docs
-docs:
-	stack haddock --open
+.PHONY: haddock
+haddock:
+	stack haddock --open &
+
+.PHONY: hoogle
+hoogle:
+	stack hoogle -- generate --local
+	stack hoogle -- server --local --port=8080
+
+.PHONY: clean
+clean:
+	stack clean
