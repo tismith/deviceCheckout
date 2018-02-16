@@ -6,6 +6,11 @@ There are some really basic DocTests that are kicked off from make.
 
 There's a makefile, that uses stack and cabal under the hood to build.
 
+It uses Options.Applicative for options parsing.
+
+It passes around an Application structure using a ReaderT monad. This
+contains the optoins from the command line, as well as other global control
+variables (like a MVar for database access control)
 
 Other interesting things to remember:
 
@@ -15,9 +20,8 @@ stack build --fast --file-watch --exec "killall rest-test"
 (in another terminal)
 while :; do stack exec rest-test; done
 
-
-TODO:
-I concurrent access to endpoints are likely to result in SQLITE_BUSY errors
-being returned - I should fix this, likely by putting a database handle in
-an MVar in the ReaderT, to ensure only one guy is accessing the db at a time
+Issues fixed:
+I use an MVar to control concurrent access to the SQLite database to
+ensure only one guy is accessing the db at a time
 i.e. http://nurpax.github.io/posts/2013-01-04-note-to-self.html
+
