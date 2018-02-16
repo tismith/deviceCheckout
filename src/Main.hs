@@ -79,12 +79,11 @@ routes = do
                             (Just rawAssignment)
                             maybeTestStatus
                             (Just rawComments)
-        numRowsChanged <- liftAndCatchIO (updateBug db bugUpdate)
+        updateReturn <- liftAndCatchIO (updateBug db bugUpdate)
                 `rescue` textError internalServerError500
-
-        when (numRowsChanged /= 1)
-            $ textError internalServerError500 "Database error"
-        redirect "/bugs"
+        case updateReturn of
+            Left e -> textError internalServerError500 e
+            Right _ -> redirect "/bugs"
 
     get "/api/bugs" $ do
         db <- getDatabasePath
@@ -102,16 +101,18 @@ routes = do
     delete "/api/bugs/:bug" $ do
         db <- getDatabasePath
         bug <- (param "bug" :: ActionD TL.Text) `rescue` jsonError badRequest400
-        numRowsChanged <- liftAndCatchIO $ deleteBug db bug
-        when (numRowsChanged /= 1) (jsonError notFound404 "Failed to delete")
-        finish
+        deleteReturn <- liftAndCatchIO $ deleteBug db bug
+        case deleteReturn of
+            (Left e) -> textError internalServerError500 e
+            (Right _) -> finish
 
     post "/api/bugs" $ do
         db <- getDatabasePath
         request <- (jsonData :: ActionD Bug) `rescue` jsonError badRequest400
-        numRowsChanged <- liftAndCatchIO $ addBug db request
-        when (numRowsChanged /= 1) $ jsonError internalServerError500 "Database error"
-        json request
+        addReturn <- liftAndCatchIO $ addBug db request
+        case addReturn of
+            (Left e) -> textError internalServerError500 e
+            (Right _) -> json request
 
     --default route, Scotty does a HTML based 404 by default
     notFound $ textError notFound404 "Not found"
