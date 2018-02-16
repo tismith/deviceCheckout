@@ -127,11 +127,17 @@ routes = do
                     Available -> Nothing
                     _ -> Just rawOwner
 
+        -- Blank out comments on returning devices
+        let realComments =
+                case realReservationStatus of
+                    Available -> Nothing
+                    _ -> Just rawComments
+
         let deviceUpdate = DeviceUpdate
                             rawDeviceName
                             realOwner
                             realReservationStatus
-                            (Just rawComments)
+                            realComments
         updateReturn <- withDatabase (`updateDevice` deviceUpdate)
                 `rescue` textError internalServerError500
         case updateReturn of
