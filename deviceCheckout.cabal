@@ -19,6 +19,7 @@ executable          deviceCheckout
                   , blaze-html
                   , mtl
                   , optparse-applicative
+                  , unix
 
 test-suite             doctests
     type:              exitcode-stdio-1.0

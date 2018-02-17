@@ -14,8 +14,14 @@ import Control.Monad.Reader (runReaderT, ReaderT, ask)
 import Control.Monad.Trans (lift)
 import qualified Data.Text.Lazy as TL (Text, unpack, length)
 
+--System
+import System.Exit (exitSuccess)
+import System.Posix.Signals (installHandler, Handler(Catch), sigINT, sigTERM)
+
 --Concurrency
-import Control.Concurrent.MVar (MVar, newMVar, modifyMVar)
+import Control.Concurrent (forkIO)
+import Control.Concurrent.MVar (MVar, newMVar, newEmptyMVar,
+    modifyMVar, takeMVar, putMVar)
 
 --Option parsing
 import Options.Applicative (Parser, execParser, strOption, long,
@@ -60,13 +66,27 @@ applicationOptions = ApplicationOptions
 type ScottyD = ScottyT TL.Text (ReaderT Application IO)
 type ActionD = ActionT TL.Text (ReaderT Application IO)
 
+handler :: MVar () -> IO ()
+handler mutex = putMVar mutex ()
+
 main :: IO ()
 main = do
     options <- execParser opts
     let application = Application options (newMVar (databasePath options))
-    scottyT (portNumber options) (passInApplication application) $ do
-        defaultHandler (jsonError internalServerError500)
-        routes
+    shutdownMVar <- newEmptyMVar
+    _ <- forkIO $
+        scottyT (portNumber options) (passInApplication application) $ do
+            defaultHandler (jsonError internalServerError500)
+            routes
+    --have the main thread wait on a shutdown signal, and then wait
+    --for the db to be free, then exit
+    _ <- installHandler sigINT (Catch $ handler shutdownMVar) Nothing
+    _ <- installHandler sigTERM (Catch $ handler shutdownMVar) Nothing
+    _ <- takeMVar shutdownMVar
+    databaseMutexMVar <- databaseHandle application
+    _ <- takeMVar databaseMutexMVar
+    putStrLn "Exiting..."
+    exitSuccess
     where
         opts = info
             (applicationOptions <**> helper)
