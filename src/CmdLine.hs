@@ -1,4 +1,4 @@
-module CmdLine where
+module CmdLine(applicationOptionsParser) where
 
 import Options.Applicative (Parser, ParserInfo, strOption, long,
     short, metavar, value, showDefault, help, auto, option, info,
