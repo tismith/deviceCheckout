@@ -4,7 +4,9 @@ module Types (
     DeviceUpdate(..),
     ReservationStatus(..),
     ApplicationOptions(..),
-    Application(..)
+    Application(..),
+    ScottyD,
+    ActionD,
 ) where
 
 import Database.SQLite.Simple(SQLData(..), ResultError(..))
@@ -18,6 +20,8 @@ import GHC.Generics (Generic)
 import Data.Text.Lazy as TL (Text, pack, toStrict)
 import Data.Aeson (FromJSON, ToJSON)
 import Control.Concurrent.MVar (MVar)
+import Control.Monad.Reader (ReaderT)
+import Web.Scotty.Trans (ScottyT, ActionT)
 
 data ApplicationOptions = ApplicationOptions {
     databasePath :: String,
@@ -64,3 +68,8 @@ data DeviceUpdate = DeviceUpdate {
     newReservationStatus :: ReservationStatus,
     newComments :: Maybe TL.Text
 } deriving (Show, Generic)
+
+-- NB: ScottyT and hence ScottD is not a Transformer,
+--     the underlying monad will only be run on a per-action basis
+type ScottyD = ScottyT TL.Text (ReaderT Application IO)
+type ActionD = ActionT TL.Text (ReaderT Application IO)
