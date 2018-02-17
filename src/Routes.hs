@@ -23,10 +23,11 @@ import Data.Maybe (isNothing, fromMaybe, isJust)
 import Text.Read (readMaybe)
 
 --Local imports
-import Types (Device(..), DeviceUpdate(..),
+import Types (Device(..), DeviceUpdate(..), DeviceEdit(..),
     ReservationStatus(..), ApplicationOptions(..), Application(..),
     ActionD, ScottyD)
-import Database (getDevices, updateDevice, getDevice, deleteDevice, addDevice)
+import Database (getDevices, updateDevice, editDevice,
+    getDevice, deleteDevice, addDevice)
 import Templates
 
 --default error handler, return the message in json
@@ -55,10 +56,18 @@ routes = do
     get "/devices" $ do
         errorMessage <-
             (Just <$> param "errorMessage" :: ActionD (Maybe TL.Text))
-            `rescue` (const $ return Nothing)
+            `rescue` const (return Nothing)
         devices <- withDatabase getDevices
                 `rescue` textError internalServerError500
         html $ deviceList errorMessage devices
+
+    get "/editDevices" $ do
+        errorMessage <-
+            (Just <$> param "errorMessage" :: ActionD (Maybe TL.Text))
+            `rescue` const (return Nothing)
+        devices <- withDatabase getDevices
+                `rescue` textError internalServerError500
+        html $ editDeviceList errorMessage devices
 
     post "/devices" $ do
         rawDeviceName <- (param "deviceName" :: ActionD TL.Text)
@@ -76,7 +85,7 @@ routes = do
             $ textError badRequest400 "Invalid reservationStatus"
 
         when (isJust maybeReservationStatus && TL.length rawOwner == 0)
-            $ redirect "/devices?errorMessage=You need to supply a username"
+            $ redirect "/devices?errorMessage=You need to supply an owner"
 
         let realReservationStatus = fromMaybe Available maybeReservationStatus
 
@@ -102,6 +111,24 @@ routes = do
         case updateReturn of
             Left e -> textError internalServerError500 e
             Right _ -> redirect "/devices"
+
+    post "/editDevices" $ do
+        rawDeviceName <- (param "deviceName" :: ActionD TL.Text)
+            `rescue` textError badRequest400
+        rawUrl <- (param "deviceUrl" :: ActionD TL.Text)
+            `rescue` textError badRequest400
+
+        when (TL.length rawDeviceName == 0)
+            $ redirect "/editDevices?errorMessage=You need to supply a device name"
+
+        let deviceUpdate = DeviceEdit
+                            rawDeviceName
+                            (Just rawUrl)
+        updateReturn <- withDatabase (`editDevice` deviceUpdate)
+                `rescue` textError internalServerError500
+        case updateReturn of
+            Left e -> textError internalServerError500 e
+            Right _ -> redirect "/editDevices"
 
     get "/api/devices" $ do
         devices <- withDatabase getDevices

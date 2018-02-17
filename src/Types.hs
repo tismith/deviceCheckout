@@ -2,6 +2,7 @@
 module Types (
     Device(..),
     DeviceUpdate(..),
+    DeviceEdit(..),
     ReservationStatus(..),
     ApplicationOptions(..),
     Application(..),
@@ -67,6 +68,11 @@ data DeviceUpdate = DeviceUpdate {
     newOwner :: Maybe TL.Text,
     newReservationStatus :: ReservationStatus,
     newComments :: Maybe TL.Text
+} deriving (Show, Generic)
+
+data DeviceEdit = DeviceEdit {
+    editDeviceName :: TL.Text,
+    editDeviceUrl :: Maybe TL.Text
 } deriving (Show, Generic)
 
 -- NB: ScottyT and hence ScottD is not a Transformer,
