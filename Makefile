@@ -10,6 +10,10 @@ setup:
 build:
 	stack build --pedantic --test --no-run-tests
 
+.PHONY: watch
+watch:
+	stack build --fast --test --file-watch
+
 .PHONY: test
 test:
 	stack test

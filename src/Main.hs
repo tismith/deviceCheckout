@@ -21,7 +21,7 @@ import System.Posix.Signals (installHandler, Handler(Catch), sigINT, sigTERM)
 --Concurrency
 import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar (MVar, newMVar, newEmptyMVar,
-    modifyMVar, takeMVar, putMVar)
+    takeMVar, putMVar, withMVar)
 
 --Option parsing
 import Options.Applicative (Parser, execParser, strOption, long,
@@ -40,12 +40,12 @@ import Database (getDevices, updateDevice, getDevice, deleteDevice, addDevice)
 import Templates
 
 data Application = Application {
-    _appOptions :: ApplicationOptions,
-    databaseHandle :: IO (MVar String)
+    applicationOptions :: ApplicationOptions,
+    databaseMutex :: IO (MVar ())
 }
 
-applicationOptions :: Parser ApplicationOptions
-applicationOptions = ApplicationOptions
+parseOptions :: Parser ApplicationOptions
+parseOptions = ApplicationOptions
     <$> strOption
         ( long "database"
           <> short 'f'
@@ -72,24 +72,29 @@ handler mutex = putMVar mutex ()
 main :: IO ()
 main = do
     options <- execParser opts
-    let application = Application options (newMVar (databasePath options))
-    shutdownMVar <- newEmptyMVar
+    let application = Application options (newMVar ())
+
+    --start scotty in a background thread, so we can exit on a signal
     _ <- forkIO $
         scottyT (portNumber options) (passInApplication application) $ do
             defaultHandler (jsonError internalServerError500)
             routes
+
     --have the main thread wait on a shutdown signal, and then wait
     --for the db to be free, then exit
+    shutdownMVar <- newEmptyMVar
     _ <- installHandler sigINT (Catch $ handler shutdownMVar) Nothing
     _ <- installHandler sigTERM (Catch $ handler shutdownMVar) Nothing
+
+    --here we wait...
     _ <- takeMVar shutdownMVar
-    databaseMutexMVar <- databaseHandle application
+    databaseMutexMVar <- databaseMutex application
     _ <- takeMVar databaseMutexMVar
     putStrLn "Exiting..."
     exitSuccess
     where
         opts = info
-            (applicationOptions <**> helper)
+            (parseOptions <**> helper)
             (fullDesc <> progDesc "Basic device registry database webapp")
         passInApplication = flip runReaderT
 
@@ -108,11 +113,10 @@ textError = handleError text
 
 withDatabase :: (String -> IO a) -> ActionD a
 withDatabase action = do
-    options <- lift ask
-    dbPath <- liftAndCatchIO $ databaseHandle options
-    liftAndCatchIO $ modifyMVar dbPath $ \s -> do
-        result <- action s
-        return (s, result)
+    application <- lift ask
+    dbMutex <- liftAndCatchIO $ databaseMutex application
+    let dbPath = (databasePath . applicationOptions) application
+    liftAndCatchIO $ withMVar dbMutex (\_ -> action dbPath)
 
 routes :: ScottyD ()
 routes = do
