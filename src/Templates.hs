@@ -54,8 +54,8 @@ deviceRow device =
                 Just Reserved -> A.value "RETURN"
                 _ -> A.value "CLAIM"
 
-deviceList :: (Foldable t) => t Device -> TL.Text
-deviceList devices = renderHtml $ do
+deviceList :: (Foldable t) => Maybe TL.Text -> t Device -> TL.Text
+deviceList errorMessage devices = renderHtml $ do
     H.head $ do
         H.title "Device list"
         H.link H.! A.rel "stylesheet"
@@ -64,6 +64,12 @@ deviceList devices = renderHtml $ do
     H.body $
         H.div H.! A.class_ "container" $ do
             H.h1 "Devices"
+            case errorMessage of
+                Just e ->
+                    H.div H.! A.class_ "alert alert-danger" $ do
+                        H.strong "Error: "
+                        H.toMarkup e
+                Nothing -> return ()
             H.table H.! A.class_ "table table-bordered" $ do
                 H.thead H.! A.class_ "thead-dark" $ H.tr $ do
                     H.th "Device name"

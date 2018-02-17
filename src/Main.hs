@@ -33,7 +33,7 @@ main = do
 
     --start scotty in a background thread, so we can exit on a signal
     _ <- forkIO $
-        scottyT (portNumber options) (passInApplication application) routes
+        scottyT (portNumber options) (`runReaderT` application) routes
 
     --have the main thread wait on a shutdown signal, and then wait
     --for the db to be free, then exit
@@ -47,5 +47,3 @@ main = do
     _ <- takeMVar databaseMutexMVar
     putStrLn "Exiting..."
     exitSuccess
-    where
-        passInApplication = flip runReaderT

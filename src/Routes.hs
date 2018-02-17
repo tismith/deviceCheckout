@@ -53,9 +53,12 @@ routes :: ScottyD ()
 routes = do
     defaultHandler (jsonError internalServerError500)
     get "/devices" $ do
+        errorMessage <-
+            (Just <$> param "errorMessage" :: ActionD (Maybe TL.Text))
+            `rescue` (const $ return Nothing)
         devices <- withDatabase getDevices
                 `rescue` textError internalServerError500
-        html $ deviceList devices
+        html $ deviceList errorMessage devices
 
     post "/devices" $ do
         rawDeviceName <- (param "deviceName" :: ActionD TL.Text)
@@ -73,7 +76,7 @@ routes = do
             $ textError badRequest400 "Invalid reservationStatus"
 
         when (isJust maybeReservationStatus && TL.length rawOwner == 0)
-            $ textError badRequest400 "You need to supply a username"
+            $ redirect "/devices?errorMessage=You need to supply a username"
 
         let realReservationStatus = fromMaybe Available maybeReservationStatus
 
