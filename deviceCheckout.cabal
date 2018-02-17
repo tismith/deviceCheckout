@@ -6,7 +6,7 @@ build-type:    Simple
 executable          deviceCheckout
     hs-source-dirs: src
     main-is:        Main.hs
-    other-modules:  Types, Templates, Database
+    other-modules:  Types, Templates, Database, CmdLine
     ghc-options:    -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns
                     -Wredundant-constraints -threaded -O2 -rtsopts -with-rtsopts=-N
     extensions:     OverloadedStrings

@@ -3,7 +3,8 @@ module Types (
     Device(..),
     DeviceUpdate(..),
     ReservationStatus(..),
-    ApplicationOptions(..)
+    ApplicationOptions(..),
+    Application(..)
 ) where
 
 import Database.SQLite.Simple(SQLData(..), ResultError(..))
@@ -16,11 +17,17 @@ import Database.SQLite.Simple.ToField
 import GHC.Generics (Generic)
 import Data.Text.Lazy as TL (Text, pack, toStrict)
 import Data.Aeson (FromJSON, ToJSON)
+import Control.Concurrent.MVar (MVar)
 
 data ApplicationOptions = ApplicationOptions {
     databasePath :: String,
     portNumber :: Int
 } deriving (Show)
+
+data Application = Application {
+    applicationOptions ::ApplicationOptions,
+    databaseMutex :: IO (MVar ())
+}
 
 data ReservationStatus = Available | Reserved
     deriving (Show, Generic, Enum, Bounded, Eq, Read)

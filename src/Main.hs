@@ -24,10 +24,7 @@ import Control.Concurrent.MVar (MVar, newMVar, newEmptyMVar,
     takeMVar, putMVar, withMVar)
 
 --Option parsing
-import Options.Applicative (Parser, execParser, strOption, long,
-    short, metavar, value, showDefault, help, auto, option, info,
-    (<**>), helper, fullDesc, progDesc)
-import Data.Semigroup ((<>))
+import Options.Applicative (execParser)
 
 --Utilities
 import Data.Maybe (isNothing, fromMaybe, isJust)
@@ -35,31 +32,10 @@ import Text.Read (readMaybe)
 
 --Local imports
 import Types (Device(..), DeviceUpdate(..),
-    ReservationStatus(..), ApplicationOptions(..))
+    ReservationStatus(..), ApplicationOptions(..), Application(..))
 import Database (getDevices, updateDevice, getDevice, deleteDevice, addDevice)
+import CmdLine (applicationOptionsParser)
 import Templates
-
-data Application = Application {
-    applicationOptions :: ApplicationOptions,
-    databaseMutex :: IO (MVar ())
-}
-
-parseOptions :: Parser ApplicationOptions
-parseOptions = ApplicationOptions
-    <$> strOption
-        ( long "database"
-          <> short 'f'
-          <> metavar "DATABASE"
-          <> showDefault
-          <> value "devices.db"
-          <> help "SQLite DB path" )
-    <*> option auto
-        ( long "webserver-port"
-          <> short 'p'
-          <> help "Port to run the webserver"
-          <> showDefault
-          <> value 3000
-          <> metavar "INT" )
 
 -- NB: ScottyT and hence ScottD is not a Transformer,
 --     the underlying monad will only be run on a per-action basis
@@ -71,7 +47,7 @@ handler mutex = putMVar mutex ()
 
 main :: IO ()
 main = do
-    options <- execParser opts
+    options <- execParser applicationOptionsParser
     let application = Application options (newMVar ())
 
     --start scotty in a background thread, so we can exit on a signal
@@ -93,9 +69,6 @@ main = do
     putStrLn "Exiting..."
     exitSuccess
     where
-        opts = info
-            (parseOptions <**> helper)
-            (fullDesc <> progDesc "Basic device registry database webapp")
         passInApplication = flip runReaderT
 
 --default error handler, return the message in json
