@@ -127,7 +127,7 @@ routes = do
         let deviceUpdate = DeviceEdit
                             rawDeviceName
                             (Just rawUrl)
-        updateReturn <- if (isNothing isDelete) then
+        updateReturn <- if isNothing isDelete then
                 withDatabase (`editDevice` deviceUpdate)
                         `rescue` textError internalServerError500
             else
