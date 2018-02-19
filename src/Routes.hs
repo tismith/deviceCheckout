@@ -61,14 +61,6 @@ routes = do
                 `rescue` textError internalServerError500
         html $ deviceList errorMessage devices
 
-    get "/editDevices" $ do
-        errorMessage <-
-            (Just <$> param "errorMessage" :: ActionD (Maybe TL.Text))
-            `rescue` const (return Nothing)
-        devices <- withDatabase getDevices
-                `rescue` textError internalServerError500
-        html $ editDeviceList errorMessage devices
-
     post "/devices" $ do
         rawDeviceName <- (param "deviceName" :: ActionD TL.Text)
             `rescue` textError badRequest400
@@ -112,11 +104,22 @@ routes = do
             Left e -> textError internalServerError500 e
             Right _ -> redirect "/devices"
 
+    get "/editDevices" $ do
+        errorMessage <-
+            (Just <$> param "errorMessage" :: ActionD (Maybe TL.Text))
+            `rescue` const (return Nothing)
+        devices <- withDatabase getDevices
+                `rescue` textError internalServerError500
+        html $ editDeviceList errorMessage devices
+
     post "/editDevices" $ do
         rawDeviceName <- (param "deviceName" :: ActionD TL.Text)
             `rescue` textError badRequest400
         rawUrl <- (param "deviceUrl" :: ActionD TL.Text)
             `rescue` textError badRequest400
+        isDelete <-
+            (Just <$> param "delete" :: ActionD (Maybe TL.Text))
+            `rescue` const (return Nothing)
 
         when (TL.length rawDeviceName == 0)
             $ redirect "/editDevices?errorMessage=You need to supply a device name"
@@ -124,10 +127,31 @@ routes = do
         let deviceUpdate = DeviceEdit
                             rawDeviceName
                             (Just rawUrl)
-        updateReturn <- withDatabase (`editDevice` deviceUpdate)
-                `rescue` textError internalServerError500
+        updateReturn <- if (isNothing isDelete) then
+                withDatabase (`editDevice` deviceUpdate)
+                        `rescue` textError internalServerError500
+            else
+                withDatabase (`deleteDevice` rawDeviceName)
+                        `rescue` textError badRequest400
         case updateReturn of
             Left e -> textError internalServerError500 e
+            Right _ -> redirect "/editDevices"
+
+    post "/addDevice" $ do
+        rawDeviceName <- (param "deviceName" :: ActionD TL.Text)
+            `rescue` textError badRequest400
+        rawUrl <- (param "deviceUrl" :: ActionD TL.Text)
+            `rescue` textError badRequest400
+        let newDevice = Device
+                            rawDeviceName
+                            (Just rawUrl)
+                            Nothing
+                            Nothing
+                            (Just Available)
+        addReturn <- withDatabase (`addDevice` newDevice)
+                `rescue` textError internalServerError500
+        case addReturn of
+            Left e -> textError badRequest400 e
             Right _ -> redirect "/editDevices"
 
     get "/api/devices" $ do
